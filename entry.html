@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>대진표 결과 생성기 (Tab Separate Title)</title>
+<script>
+	// 저장된 테마를 렌더링 전에 미리 적용 (깜빡임 방지)
+	(function() {
+		var saved = localStorage.getItem('matchAppTheme') || 'light';
+		document.documentElement.setAttribute('data-theme', saved);
+	})();
+</script>
+<style>
+/* ==========================================
+   대진표 결과 생성기 — 5가지 테마 지원
+   data-theme="light" | "dark-simple" | "dark-premium" | "cyberpunk" | "cool-slate"
+   변수 정의는 하단 테마 블록 참고
+========================================== */
+
+* { box-sizing: border-box; font-family: '맑은 고딕', 'Noto Sans KR', sans-serif; }
+
+html, body {
+	width: 100%; height: 100%; margin: 0; padding: 12px;
+	background: var(--bg-page);
+	color: var(--text-primary);
+}
+
+/* 스크롤바 */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--bg-panel); }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
+
+/* 테마 스위처 */
+.theme-switcher { display: flex; gap: 6px; margin-left: auto; align-items: center; }
+.theme-btn {
+	width: 30px; height: 30px;
+	border-radius: 50%;
+	border: 2px solid var(--border-soft);
+	cursor: pointer;
+	display: flex; align-items: center; justify-content: center;
+	font-size: 14px;
+	background: var(--bg-card);
+	opacity: 0.55;
+	transition: opacity 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+.theme-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+.theme-btn.active { opacity: 1; border-color: var(--accent); }
+
+/* 탭 헤더 */
+.tab-header {
+	display: flex;
+	gap: 4px;
+	margin-bottom: 10px;
+	border-bottom: 1px solid var(--border-soft);
+}
+.tab-btn {
+	padding: 8px 16px;
+	border: 1px solid var(--border-soft);
+	border-bottom: none;
+	background: var(--tab-inactive-bg);
+	color: var(--text-primary);
+	cursor: pointer;
+	font-weight: bold;
+	font-size: 14px;
+	border-radius: 6px 6px 0 0;
+	transition: opacity 0.15s ease;
+}
+.tab-btn:hover { opacity: 0.8; }
+.tab-btn.active {
+	background: var(--accent);
+	color: var(--accent-text);
+	border-color: var(--accent);
+}
+
+.container { display: flex; width: 100%; height: calc(100% - 90px); gap: 10px; }
+
+/* 좌측 입력 영역 */
+#ck_elo {
+	flex: 0 0 60%;
+	border: 1px solid var(--border-soft);
+	border-radius: 8px;
+	padding: 14px;
+	background: var(--bg-panel);
+	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+/* 우측 텍스트 출력 영역 */
+#ck_mem {
+	flex: 0 0 40%;
+	font-family: 'Consolas', monospace;
+	font-size: 14px;
+	line-height: 1.5;
+	padding: 12px;
+	resize: none;
+	border: 1px solid var(--border-soft);
+	border-radius: 8px;
+	background: var(--bg-output);
+	color: var(--text-primary);
+	white-space: pre;
+}
+#ck_mem:focus { outline: none; border-color: var(--border-strong); }
+
+/* 상단 컨트롤 바 */
+.top-bar { margin-bottom: 10px; display: flex; gap: 10px; align-items: center; }
+.btn-generate {
+	padding: 8px 18px;
+	background-color: var(--accent);
+	color: var(--accent-text);
+	border: none;
+	font-weight: bold;
+	cursor: pointer;
+	border-radius: 5px;
+	transition: opacity 0.15s ease;
+}
+.btn-generate:hover { opacity: 0.85; }
+
+.btn-reset {
+	padding: 8px 16px;
+	background-color: transparent;
+	color: var(--text-muted);
+	border: 1px solid var(--border-strong);
+	font-weight: bold;
+	cursor: pointer;
+	border-radius: 5px;
+	transition: background 0.15s ease, color 0.15s ease;
+}
+.btn-reset:hover { background: var(--clear-hover-bg); color: var(--text-primary); }
+
+/* 타이틀 박스 */
+.title-box {
+	display: flex; align-items: center; justify-content: center; gap: 6px;
+	background: var(--bg-card);
+	padding: 8px; border: 1px solid var(--border-soft); border-radius: 5px;
+}
+.title-box input {
+	padding: 5px 8px; border: 1px solid var(--input-border); border-radius: 4px;
+	background: var(--bg-input); color: var(--text-primary);
+	font-weight: bold; text-align: center;
+}
+.title-box input::placeholder { color: var(--text-dim); }
+.title-box input:focus { outline: none; border-color: var(--border-strong); }
+
+/* 팀 정보 */
+.team-box {
+	display: flex; align-items: center; justify-content: center; gap: 6px;
+	background: var(--bg-card);
+	padding: 8px; border: 1px solid var(--border-soft); border-radius: 5px;
+}
+.team-box input#my_team,
+.team-box input#op_team {
+	padding: 5px 8px; border: 1px solid var(--input-border); border-radius: 4px;
+	background: var(--bg-input); color: var(--text-primary);
+	width: 100px;
+}
+.team-box input#my_team { text-align: right; }
+.team-box input:focus { outline: none; border-color: var(--border-strong); }
+.team-box #score_display { font-weight: bold; color: var(--accent); }
+.team-box span { color: var(--text-muted); }
+.team-box input#match_rule {
+	width: 50px; text-align: center;
+	padding: 5px; border: 1px solid var(--input-border); border-radius: 4px;
+	background: var(--bg-input); color: var(--text-primary);
+}
+
+/* 대진 리스트 */
+.match-list, .line-list { display: flex; flex-direction: column; gap: 6px; }
+
+/* 기본 매치 & 라인 매치 행 항목 */
+.match-item, .line-item {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	background: var(--bg-card);
+	padding: 8px;
+	border: 1px solid var(--border-soft);
+	border-radius: 5px;
+	cursor: grab;
+	user-select: none;
+}
+.match-item:hover, .line-item:hover { border-color: var(--border-strong); }
+.match-item.dragging, .line-item.dragging { opacity: 0.5; background: var(--drag-bg); border: 1px dashed var(--drag-border); }
+
+.match-num { font-weight: bold; width: 25px; text-align: center; color: var(--text-muted); }
+
+/* 선수 및 라인 박스 */
+.player-box {
+	padding: 4px 8px;
+	background: var(--player-bg);
+	border: 1px solid var(--player-border);
+	border-radius: 4px;
+	cursor: move;
+	display: inline-block;
+}
+.player-box[data-role="p1-box"] { border-left: 2px solid var(--accent-p1); }
+.player-box[data-role="p2-box"] { border-left: 2px solid var(--accent-p2); }
+.player-box input {
+	border: none; background: transparent; color: var(--text-primary);
+	width: 80px; text-align: center;
+}
+.player-box input:focus { outline: none; }
+.player-box input::placeholder { color: var(--text-dim); }
+
+.line-name-input {
+	width: 60px; text-align: center; font-weight: bold; padding: 4px;
+	border: 1px solid var(--input-border); border-radius: 3px;
+	background: var(--bg-input); color: var(--text-primary);
+}
+.line-name-input:focus { outline: none; border-color: var(--border-strong); }
+
+/* 승패 결정 및 스왑 버튼 */
+.vs-btn, .swap-btn {
+	padding: 4px 8px;
+	background: var(--bg-input);
+	border: 1px solid var(--input-border);
+	border-radius: 4px;
+	font-weight: bold;
+	display: flex;
+	gap: 4px;
+	cursor: pointer;
+	color: var(--text-muted);
+}
+.vs-btn span { cursor: pointer; padding: 0 2px; }
+.vs-btn span:hover, .swap-btn:hover { background: var(--hover-bg); border-color: var(--border-strong); }
+
+.map-input {
+	width: 100px;
+	padding: 4px 6px;
+	border: 1px solid var(--input-border); border-radius: 4px;
+	background: var(--bg-input); color: var(--text-primary);
+}
+.map-input:focus { outline: none; border-color: var(--border-strong); }
+.map-input::placeholder { color: var(--text-dim); }
+
+/* 삭제 버튼 */
+.btn-clear {
+	background: transparent;
+	border: none;
+	cursor: pointer;
+	font-size: 14px;
+	padding: 2px 6px;
+	border-radius: 4px;
+	margin-left: auto;
+	transition: background 0.2s;
+}
+.btn-clear:hover { background: var(--clear-hover-bg); }
+
+/* 탭별 표시 컨트롤 */
+.tab-content { display: none; }
+.tab-content.active { display: flex; flex-direction: column; gap: 10px; }
+
+/* 하단 추가 텍스트 영역 */
+.footer-text-box {
+	display: flex;
+	flex-direction: column;
+	gap: 5px;
+	margin-top: 10px;
+}
+.footer-text-box label {
+	font-size: 13px;
+	font-weight: bold;
+	color: var(--text-muted);
+}
+.footer-text-box textarea {
+	width: 100%;
+	height: 80px;
+	padding: 8px;
+	border: 1px solid var(--input-border);
+	border-radius: 4px;
+	resize: vertical;
+	font-family: inherit;
+	font-size: 13px;
+	background: var(--bg-input);
+	color: var(--text-primary);
+}
+.footer-text-box textarea:focus { outline: none; border-color: var(--border-strong); }
+.footer-text-box textarea::placeholder { color: var(--text-dim); }
+
+/* ==========================================
+   테마 변수 정의
+========================================== */
+
+/* 1) 라이트 (원본 디자인) */
+html[data-theme="light"], :root {
+	--bg-page:#ffffff; --bg-panel:#f9f9f9; --bg-card:#ffffff; --bg-input:#ffffff; --bg-output:#ffffff;
+	--border-soft:#cccccc; --border-strong:#999999;
+	--text-primary:#222222; --text-muted:#555555; --text-dim:#999999;
+	--accent:#4CAF50; --accent-text:#ffffff;
+	--accent-p1:#999999; --accent-p2:#999999;
+	--hover-bg:#dddddd; --clear-hover-bg:#ffe0e0;
+	--drag-bg:#e0e0e0; --drag-border:#666666;
+	--player-bg:#eeeeee; --player-border:#999999;
+	--tab-inactive-bg:#e0e0e0; --input-border:#cccccc;
+}
+
+/* 2) 심플 다크 */
+html[data-theme="dark-simple"] {
+	--bg-page:#14161A; --bg-panel:#1B1E23; --bg-card:#22262C; --bg-input:#14161A; --bg-output:#1B1E23;
+	--border-soft:#2B2F36; --border-strong:#5A5F68;
+	--text-primary:#E4E6EA; --text-muted:#8A8F98; --text-dim:#5A5F68;
+	--accent:#E8B44A; --accent-text:#201A08;
+	--accent-p1:#4A90E2; --accent-p2:#E25C6E;
+	--hover-bg:#2B2F36; --clear-hover-bg:rgba(226,92,110,0.15);
+	--drag-bg:#1B1E23; --drag-border:#5A5F68;
+	--player-bg:#14161A; --player-border:#2B2F36;
+	--tab-inactive-bg:#1B1E23; --input-border:#2B2F36;
+}
+
+/* 3) 프리미엄 다크 (웜톤 · 앰버 포인트) */
+html[data-theme="dark-premium"] {
+	--bg-page:#1C1B1F; --bg-panel:#242228; --bg-card:#2B2930; --bg-input:#201F24; --bg-output:#1A181C;
+	--border-soft:#3A3740; --border-strong:#4A4650;
+	--text-primary:#EDEAE4; --text-muted:#9C97A3; --text-dim:#635F6B;
+	--accent:#D9A05B; --accent-text:#241505;
+	--accent-p1:#7CA8D9; --accent-p2:#D97C87;
+	--hover-bg:#34313A; --clear-hover-bg:rgba(217,124,135,0.15);
+	--drag-bg:#2B2930; --drag-border:#D9A05B;
+	--player-bg:#201F24; --player-border:#3A3740;
+	--tab-inactive-bg:#242228; --input-border:#3A3740;
+}
+
+/* 4) [NEW] 네온 사이버 (Cyberpunk Neon) */
+html[data-theme="cyberpunk"] {
+	--bg-page:#0B0C10; --bg-panel:#1F2833; --bg-card:#121A21; --bg-input:#0B0C10; --bg-output:#0B0C10;
+	--border-soft:#1F2833; --border-strong:#45A29E;
+	--text-primary:#66FCF1; --text-muted:#C5C6C7; --text-dim:#45A29E;
+	--accent:#66FCF1; --accent-text:#0B0C10;
+	--accent-p1:#66FCF1; --accent-p2:#FF007F;
+	--hover-bg:#1F2833; --clear-hover-bg:rgba(255,0,127,0.25);
+	--drag-bg:#121A21; --drag-border:#66FCF1;
+	--player-bg:#0B0C10; --player-border:#1F2833;
+	--tab-inactive-bg:#1F2833; --input-border:#1F2833;
+}
+
+/* 5) [NEW] 쿨 슬레이트 (Cool Modern Slate) */
+html[data-theme="cool-slate"] {
+	--bg-page:#F0F4F8; --bg-panel:#E2E8F0; --bg-card:#FFFFFF; --bg-input:#F8FAFC; --bg-output:#FFFFFF;
+	--border-soft:#CBD5E1; --border-strong:#64748B;
+	--text-primary:#1E293B; --text-muted:#475569; --text-dim:#94A3B8;
+	--accent:#0EA5E9; --accent-text:#FFFFFF;
+	--accent-p1:#3B82F6; --accent-p2:#F43F5E;
+	--hover-bg:#E2E8F0; --clear-hover-bg:#FFE4E6;
+	--drag-bg:#CBD5E1; --drag-border:#0EA5E9;
+	--player-bg:#F1F5F9; --player-border:#CBD5E1;
+	--tab-inactive-bg:#CBD5E1; --input-border:#CBD5E1;
+}
+
+</style>
+</head>
+<body>
+
+<!-- 탭 네비게이션 -->
+<div class="tab-header">
+	<button class="tab-btn active" data-tab="basic">기본 대진 ( 스타 CK )</button>
+	<button class="tab-btn" data-tab="line">라인 대진 ( 롤 CK )</button>
+</div>
+
+<!-- 상단 실행 버튼 -->
+<div class="top-bar">
+	<button class="btn-generate" id="btnGenerate">결과 생성 🚀</button>
+	<button class="btn-reset" id="btnReset" title="모든 이름 칸을 비웁니다">초기화 🧹</button>
+	<div class="theme-switcher" id="themeSwitcher">
+		<button class="theme-btn" data-theme-value="light" title="라이트">☀️</button>
+		<button class="theme-btn" data-theme-value="cool-slate" title="쿨 슬레이트">🔘</button>
+		<button class="theme-btn" data-theme-value="dark-simple" title="심플 다크">🌙</button>
+		<button class="theme-btn" data-theme-value="dark-premium" title="프리미엄 다크">✨</button>
+		<button class="theme-btn" data-theme-value="cyberpunk" title="네온 사이버">👾</button>
+	</div>
+</div>
+
+<!-- 메인 분할 컨테이너 -->
+<div class="container">
+	<!-- [좌측] 편집 영역 -->
+	<div id="ck_elo">
+
+		<!-- [탭 1] 기본 대진 뷰 -->
+		<div id="tab_basic" class="tab-content active">
+			<!-- 타이틀 설정 (기본 대진 전용) -->
+			<div class="title-box">
+				<span>🏆</span>
+				<input type="text" id="basic_title_input" style="width:200px; text-align:center;" placeholder="기본 대진 타이틀">
+				<span>🏆</span>
+			</div>
+
+			<!-- 팀 이름 및 매치 규칙 설정 -->
+			<div class="team-box">
+				<input type="text" id="my_team" style="width:100px; text-align:right;">
+				<span id="score_display" style="font-weight:bold;">0 🆚 0</span>
+				<input type="text" id="op_team" style="width:100px;">
+				<span>[</span>
+				<input type="text" id="match_rule" style="width:50px; text-align:center;">
+				<span>]</span>
+			</div>
+
+			<!-- 동적 기본 대진 목록 -->
+			<div class="match-list" id="matchList"></div>
+
+			<!-- 하단 텍스트 입력 영역 -->
+			<div class="footer-text-box">
+				<label for="basic_footer">📝 결과 하단 추가 텍스트 (기본 대진)</label>
+				<textarea id="basic_footer" placeholder="대진표 하단에 추가할 내용(예: 룰, 공지 등)을 입력하세요."></textarea>
+			</div>
+		</div>
+
+		<!-- [탭 2] 라인 대진 뷰 -->
+		<div id="tab_line" class="tab-content">
+			<!-- 타이틀 설정 (라인 대진 전용) -->
+			<div class="title-box">
+				<span>🏆</span>
+				<input type="text" id="line_title_input" style="width:200px; text-align:center;" placeholder="라인 대진 타이틀">
+				<span>🏆</span>
+			</div>
+
+			<!-- 동적 라인 대진 목록 -->
+			<div class="line-list" id="lineList"></div>
+
+			<!-- 하단 텍스트 입력 영역 -->
+			<div class="footer-text-box">
+				<label for="line_footer">📝 결과 하단 추가 텍스트 (라인 대진)</label>
+				<textarea id="line_footer" placeholder="라인업 하단에 추가할 내용(예: 경기 시간, 참가비 등)을 입력하세요."></textarea>
+			</div>
+		</div>
+	</div>
+
+	<!-- [우측] 최종 결과 출력 영역 -->
+	<textarea id="ck_mem"></textarea>
+</div>
+
+<!-- HTML 템플릿: 기본 매치 -->
+<template id="match-template">
+	<div class="match-item" draggable="true">
+		<span class="match-num"></span>
+		<div class="player-box" draggable="true" data-role="p1-box">
+			<input type="text" class="p1-input">
+		</div>
+		<div class="vs-btn">
+			<span class="btn-left">⬜</span>
+			<span>🆚</span>
+			<span class="btn-right">⬜</span>
+		</div>
+		<div class="player-box" draggable="true" data-role="p2-box">
+			<input type="text" class="p2-input">
+		</div>
+		<span>🌐</span>
+		<input type="text" class="map-input">
+		<button class="btn-clear" title="내용 삭제">❌</button>
+	</div>
+</template>
+
+<!-- HTML 템플릿: 라인 매치 -->
+<template id="line-template">
+	<div class="line-item" draggable="true">
+		<span>【</span>
+		<input type="text" class="line-name-input">
+		<span>】</span>
+		<div class="player-box" draggable="true" data-role="p1-box">
+			<input type="text" class="p1-input">
+		</div>
+		<button class="swap-btn" title="좌우 선수 교체">↔️</button>
+		<div class="player-box" draggable="true" data-role="p2-box">
+			<input type="text" class="p2-input">
+		</div>
+		<button class="btn-clear" title="내용 삭제">❌</button>
+	</div>
+</template>
+
+<script>
+// ==========================================
+// 1. 전역 상수 정의
+// ==========================================
+const STATE = Object.freeze({
+	NONE: 'NONE',
+	WIN: 'WIN',
+	LOSE: 'LOSE'
+});
+
+const FULL_NUMS = ['０', '１', '２', '３', '４', '５', '６', '７', '８', '９'];
+const NUM_ICONS = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟', '🅰️'];
+
+const DEFAULT_STATE = {
+	activeTab: 'basic',
+	basicTitle: "스타 CK",
+	lineTitle: "롤 CK",
+	myTeam: "우리팀",
+	opTeam: "상대팀",
+	matchRule: "9/5",
+	basicFooterText: "",
+	lineFooterText: "",
+	matches: [
+		{ id: 1, p1: "", p2: "", state: STATE.NONE, map: "" },
+		{ id: 2, p1: "", p2: "", state: STATE.NONE, map: "" },
+		{ id: 3, p1: "", p2: "", state: STATE.NONE, map: "" },
+		{ id: 4, p1: "", p2: "", state: STATE.NONE, map: "" },
+		{ id: 5, p1: "", p2: "", state: STATE.NONE, map: "" },
+		{ id: 6, p1: "", p2: "", state: STATE.NONE, map: "" },
+		{ id: 7, p1: "", p2: "", state: STATE.NONE, map: "" },
+		{ id: 8, p1: "", p2: "", state: STATE.NONE, map: "" },
+		{ id: 9, p1: "", p2: "", state: STATE.NONE, map: "" },
+		{ id: 10, p1: "", p2: "", state: STATE.NONE, map: "" },
+		{ id: 11, p1: "", p2: "", state: STATE.NONE, map: "" }
+	],
+	lineMatches: [
+		{ id: 101, line: "탑탑", p1: "오뀨", p2: "" },
+		{ id: 102, line: "정글", p1: "보리", p2: "" },
+		{ id: 103, line: "미드", p1: "클템", p2: "" },
+		{ id: 104, line: "원딜", p1: "리밍", p2: "" },
+		{ id: 105, line: "서폿", p1: "뿌리", p2: "" }
+	]
+};
+
+// ==========================================
+// 2. MatchApp 클래스 정의
+// ==========================================
+class MatchApp {
+	constructor() {
+		this.state = JSON.parse(JSON.stringify(DEFAULT_STATE));
+		this.matchMap = new Map();
+		this.lineMap = new Map();
+		this.saveTimer = null;
+
+		this.dragInfo = {
+			type: null,
+			sourceId: null,
+			sourcePlayerRole: null,
+			isLineMode: false
+		};
+
+		this.initDOM();
+		this.load();
+		this.initMaps();
+		this.render();
+		this.bindEvents();
+	}
+
+	initDOM() {
+		this.dom = {
+			basicTitleInput: document.getElementById('basic_title_input'),
+			lineTitleInput: document.getElementById('line_title_input'),
+			myTeamInput: document.getElementById('my_team'),
+			opTeamInput: document.getElementById('op_team'),
+			matchRuleInput: document.getElementById('match_rule'),
+			scoreDisplay: document.getElementById('score_display'),
+			matchList: document.getElementById('matchList'),
+			lineList: document.getElementById('lineList'),
+			basicFooterInput: document.getElementById('basic_footer'),
+			lineFooterInput: document.getElementById('line_footer'),
+			resultMem: document.getElementById('ck_mem'),
+			btnGenerate: document.getElementById('btnGenerate'),
+			btnReset: document.getElementById('btnReset'),
+			matchTemplate: document.getElementById('match-template'),
+			lineTemplate: document.getElementById('line-template'),
+			tabBtns: document.querySelectorAll('.tab-btn'),
+			tabBasic: document.getElementById('tab_basic'),
+			tabLine: document.getElementById('tab_line')
+		};
+	}
+
+	initMaps() {
+		this.matchMap.clear();
+		this.state.matches.forEach(m => this.matchMap.set(m.id, m));
+
+		this.lineMap.clear();
+		this.state.lineMatches.forEach(l => this.lineMap.set(l.id, l));
+	}
+
+	save() {
+		if (this.saveTimer) clearTimeout(this.saveTimer);
+		this.saveTimer = setTimeout(() => {
+			localStorage.setItem("matchStateApp", JSON.stringify(this.state));
+		}, 300);
+	}
+
+	load() {
+		const raw = localStorage.getItem("matchStateApp");
+		if (!raw) return;
+
+		try {
+			const parsed = JSON.parse(raw);
+			this.state = { ...this.state, ...parsed };
+
+			if (Array.isArray(parsed.matches)) {
+				this.state.matches = DEFAULT_STATE.matches.map((def, idx) => ({ ...def, ...parsed.matches[idx] }));
+			}
+			if (Array.isArray(parsed.lineMatches)) {
+				this.state.lineMatches = DEFAULT_STATE.lineMatches.map((def, idx) => ({ ...def, ...parsed.lineMatches[idx] }));
+			}
+		} catch (e) {
+			console.error("Load failed:", e);
+		}
+	}
+
+	toFullWidthNum(num) {
+		return String(num).split('').map(n => FULL_NUMS[n] || n).join('');
+	}
+
+	getVisibleCount() {
+		const match = this.state.matchRule.trim().match(/^(\d+)/);
+		const count = match ? parseInt(match[1], 10) : 11;
+		return Math.min(Math.max(count, 1), 11);
+	}
+
+	calcScore() {
+		const visibleCount = this.getVisibleCount();
+		let my = 0, op = 0;
+		for (let i = 0; i < visibleCount; i++) {
+			const m = this.state.matches[i];
+			if (m.state === STATE.WIN) my++;
+			else if (m.state === STATE.LOSE) op++;
+		}
+		return { my, op, visibleCount };
+	}
+
+	getVsSymbol(matchState) {
+		if (matchState === STATE.WIN) return ['✅', '❌'];
+		if (matchState === STATE.LOSE) return ['❌', '✅'];
+		return ['⬜', '⬜'];
+	}
+
+	switchTab(tabName) {
+		this.state.activeTab = tabName;
+		this.dom.tabBtns.forEach(btn => {
+			btn.classList.toggle('active', btn.dataset.tab === tabName);
+		});
+
+		if (tabName === 'basic') {
+			this.dom.tabBasic.classList.add('active');
+			this.dom.tabLine.classList.remove('active');
+		} else {
+			this.dom.tabBasic.classList.remove('active');
+			this.dom.tabLine.classList.add('active');
+		}
+
+		this.save();
+	}
+
+	renderHeader() {
+		this.dom.basicTitleInput.value = this.state.basicTitle || "";
+		this.dom.lineTitleInput.value = this.state.lineTitle || "";
+		this.dom.myTeamInput.value = this.state.myTeam;
+		this.dom.opTeamInput.value = this.state.opTeam;
+		this.dom.matchRuleInput.value = this.state.matchRule;
+		this.dom.basicFooterInput.value = this.state.basicFooterText || "";
+		this.dom.lineFooterInput.value = this.state.lineFooterText || "";
+	}
+
+	renderScore() {
+		const { my, op } = this.calcScore();
+		this.dom.scoreDisplay.textContent = `${my} 🆚 ${op}`;
+	}
+
+	updateMatchRowUI(rowEl, match) {
+		const ui = rowEl._ui;
+		const [leftSym, rightSym] = this.getVsSymbol(match.state);
+		ui.btnLeft.textContent = leftSym;
+		ui.btnRight.textContent = rightSym;
+		ui.p1Input.value = match.p1;
+		ui.p2Input.value = match.p2;
+		ui.mapInput.value = match.map;
+	}
+
+	updateLineRowUI(rowEl, lineMatch) {
+		const ui = rowEl._ui;
+		ui.lineInput.value = lineMatch.line;
+		ui.p1Input.value = lineMatch.p1;
+		ui.p2Input.value = lineMatch.p2;
+	}
+
+	renderMatches() {
+		this.dom.matchList.innerHTML = '';
+		const fragment = document.createDocumentFragment();
+
+		this.state.matches.forEach((item) => {
+			const clone = this.dom.matchTemplate.content.cloneNode(true);
+			const matchRow = clone.querySelector('.match-item');
+
+			matchRow._ui = {
+				num: matchRow.querySelector('.match-num'),
+				p1Input: matchRow.querySelector('.p1-input'),
+				p2Input: matchRow.querySelector('.p2-input'),
+				mapInput: matchRow.querySelector('.map-input'),
+				btnLeft: matchRow.querySelector('.btn-left'),
+				btnRight: matchRow.querySelector('.btn-right')
+			};
+
+			matchRow.dataset.id = item.id;
+			this.updateMatchRowUI(matchRow, item);
+			fragment.appendChild(clone);
+		});
+
+		this.dom.matchList.appendChild(fragment);
+		this.updateVisibilityAndIcons();
+	}
+
+	renderLineMatches() {
+		this.dom.lineList.innerHTML = '';
+		const fragment = document.createDocumentFragment();
+
+		this.state.lineMatches.forEach((item) => {
+			const clone = this.dom.lineTemplate.content.cloneNode(true);
+			const lineRow = clone.querySelector('.line-item');
+
+			lineRow._ui = {
+				lineInput: lineRow.querySelector('.line-name-input'),
+				p1Input: lineRow.querySelector('.p1-input'),
+				p2Input: lineRow.querySelector('.p2-input')
+			};
+
+			lineRow.dataset.id = item.id;
+			this.updateLineRowUI(lineRow, item);
+			fragment.appendChild(clone);
+		});
+
+		this.dom.lineList.appendChild(fragment);
+	}
+
+	updateVisibilityAndIcons() {
+		const visibleCount = this.getVisibleCount();
+		const rows = [...this.dom.matchList.children];
+
+		rows.forEach((row, idx) => {
+			if (idx < visibleCount) {
+				row.style.display = 'flex';
+				const icon = (idx === visibleCount - 1) ? '🅰️' : NUM_ICONS[idx];
+				row._ui.num.textContent = icon;
+			} else {
+				row.style.display = 'none';
+			}
+		});
+
+		this.renderScore();
+	}
+
+	render() {
+		this.switchTab(this.state.activeTab || 'basic');
+		this.renderHeader();
+		this.renderMatches();
+		this.renderLineMatches();
+		this.renderScore();
+	}
+
+	bindEvents() {
+		// 탭 버튼 클릭
+		this.dom.tabBtns.forEach(btn => {
+			btn.addEventListener('click', () => this.switchTab(btn.dataset.tab));
+		});
+
+		// 탭별 타이틀 변경
+		this.dom.basicTitleInput.addEventListener('input', e => { this.state.basicTitle = e.target.value; this.save(); });
+		this.dom.lineTitleInput.addEventListener('input', e => { this.state.lineTitle = e.target.value; this.save(); });
+
+		this.dom.myTeamInput.addEventListener('input', e => { this.state.myTeam = e.target.value; this.save(); });
+		this.dom.opTeamInput.addEventListener('input', e => { this.state.opTeam = e.target.value; this.save(); });
+		this.dom.matchRuleInput.addEventListener('input', e => {
+			this.state.matchRule = e.target.value;
+			this.updateVisibilityAndIcons();
+			this.save();
+		});
+
+		// 하단 추가 텍스트 변경
+		this.dom.basicFooterInput.addEventListener('input', e => {
+			this.state.basicFooterText = e.target.value;
+			this.save();
+		});
+		this.dom.lineFooterInput.addEventListener('input', e => {
+			this.state.lineFooterText = e.target.value;
+			this.save();
+		});
+
+		// [기본 대진] 이벤트 위임
+		this.dom.matchList.addEventListener('click', e => {
+			const row = e.target.closest('.match-item');
+			if (!row) return;
+			const id = parseInt(row.dataset.id, 10);
+			const match = this.matchMap.get(id);
+
+			if (e.target.matches('.btn-left')) {
+				if (!match.p1 && !match.p2) return;
+				match.state = (match.state === STATE.WIN) ? STATE.NONE : STATE.WIN;
+				this.updateMatchRowUI(row, match);
+				this.renderScore();
+				this.save();
+			} else if (e.target.matches('.btn-right')) {
+				if (!match.p1 && !match.p2) return;
+				match.state = (match.state === STATE.LOSE) ? STATE.NONE : STATE.LOSE;
+				this.updateMatchRowUI(row, match);
+				this.renderScore();
+				this.save();
+			} else if (e.target.matches('.btn-clear')) {
+				match.p1 = ''; match.p2 = ''; match.map = ''; match.state = STATE.NONE;
+				this.updateMatchRowUI(row, match);
+				this.renderScore();
+				this.save();
+			}
+		});
+
+		this.dom.matchList.addEventListener('input', e => {
+			const row = e.target.closest('.match-item');
+			if (!row) return;
+			const match = this.matchMap.get(parseInt(row.dataset.id, 10));
+			if (e.target.matches('.p1-input')) match.p1 = e.target.value;
+			else if (e.target.matches('.p2-input')) match.p2 = e.target.value;
+			else if (e.target.matches('.map-input')) match.map = e.target.value;
+			this.save();
+		});
+
+		// [라인 대진] 이벤트 위임
+		this.dom.lineList.addEventListener('click', e => {
+			const row = e.target.closest('.line-item');
+			if (!row) return;
+			const id = parseInt(row.dataset.id, 10);
+			const lineMatch = this.lineMap.get(id);
+
+			if (e.target.matches('.swap-btn')) {
+				const temp = lineMatch.p1;
+				lineMatch.p1 = lineMatch.p2;
+				lineMatch.p2 = temp;
+				this.updateLineRowUI(row, lineMatch);
+				this.save();
+			} else if (e.target.matches('.btn-clear')) {
+				lineMatch.p1 = '';
+				lineMatch.p2 = '';
+				this.updateLineRowUI(row, lineMatch);
+				this.save();
+			}
+		});
+
+		this.dom.lineList.addEventListener('input', e => {
+			const row = e.target.closest('.line-item');
+			if (!row) return;
+			const lineMatch = this.lineMap.get(parseInt(row.dataset.id, 10));
+			if (e.target.matches('.line-name-input')) lineMatch.line = e.target.value;
+			else if (e.target.matches('.p1-input')) lineMatch.p1 = e.target.value;
+			else if (e.target.matches('.p2-input')) lineMatch.p2 = e.target.value;
+			this.save();
+		});
+
+		// 드래그 앤 드롭
+		this.bindDragEvents();
+
+		// 생성 버튼
+		this.dom.btnGenerate.addEventListener('click', () => this.generateResult());
+
+		// 초기화 버튼
+		this.dom.btnReset.addEventListener('click', () => this.resetNames());
+	}
+
+	bindDragEvents() {
+		const handleDragStart = (e, isLineMode) => {
+			const playerBox = e.target.closest('.player-box');
+			const row = e.target.closest(isLineMode ? '.line-item' : '.match-item');
+
+			if (playerBox) {
+				e.stopPropagation();
+				this.dragInfo = {
+					type: 'PLAYER',
+					sourceId: parseInt(row.dataset.id, 10),
+					sourcePlayerRole: playerBox.dataset.role === 'p1-box' ? 'p1' : 'p2',
+					isLineMode
+				};
+			} else if (row) {
+				this.dragInfo = {
+					type: 'ROW',
+					sourceId: parseInt(row.dataset.id, 10),
+					isLineMode
+				};
+				row.classList.add('dragging');
+			}
+		};
+
+		const handleDragOver = (e, container, selector) => {
+			e.preventDefault();
+			if (this.dragInfo.type === 'ROW') {
+				const draggingRow = container.querySelector('.dragging');
+				const afterElement = this.getDragAfterElement(container, selector, e.clientY);
+				if (afterElement == null) container.appendChild(draggingRow);
+				else container.insertBefore(draggingRow, afterElement);
+			}
+		};
+
+		const handleDrop = (e, isLineMode) => {
+			e.preventDefault();
+			const container = isLineMode ? this.dom.lineList : this.dom.matchList;
+			const itemSelector = isLineMode ? '.line-item' : '.match-item';
+			const targetMap = isLineMode ? this.lineMap : this.matchMap;
+
+			if (this.dragInfo.type === 'PLAYER') {
+				const targetBox = e.target.closest('.player-box');
+				const targetRow = e.target.closest(itemSelector);
+				if (!targetBox || !targetRow) return;
+
+				const targetId = parseInt(targetRow.dataset.id, 10);
+				const targetRole = targetBox.dataset.role === 'p1-box' ? 'p1' : 'p2';
+
+				const sourceMatch = targetMap.get(this.dragInfo.sourceId);
+				const targetMatch = targetMap.get(targetId);
+
+				const temp = sourceMatch[this.dragInfo.sourcePlayerRole];
+				sourceMatch[this.dragInfo.sourcePlayerRole] = targetMatch[targetRole];
+				targetMatch[targetRole] = temp;
+
+				const sourceRow = container.querySelector(`[data-id="${this.dragInfo.sourceId}"]`);
+				if (isLineMode) {
+					this.updateLineRowUI(sourceRow, sourceMatch);
+					this.updateLineRowUI(targetRow, targetMatch);
+				} else {
+					this.updateMatchRowUI(sourceRow, sourceMatch);
+					this.updateMatchRowUI(targetRow, targetMatch);
+				}
+				this.save();
+			} else if (this.dragInfo.type === 'ROW') {
+				const currentRows = [...container.querySelectorAll(itemSelector)];
+
+				if (isLineMode) {
+					// 라인 대진은 【탑탑】【정글】 등 라인명(포지션)의 순서는 항상 고정하고,
+					// 드래그로 바뀐 순서만큼 선수(p1/p2) 쌍만 자리를 옮긴다.
+					const playersInNewOrder = currentRows.map(row => {
+						const id = parseInt(row.dataset.id, 10);
+						const m = targetMap.get(id);
+						return { p1: m.p1, p2: m.p2 };
+					});
+
+					this.state.lineMatches.forEach((lm, idx) => {
+						lm.p1 = playersInNewOrder[idx].p1;
+						lm.p2 = playersInNewOrder[idx].p2;
+					});
+
+					// 라인명 순서를 원래대로 복원하며 다시 그린다 (선수만 이동된 상태로)
+					this.renderLineMatches();
+				} else {
+					const newOrder = currentRows.map(row => targetMap.get(parseInt(row.dataset.id, 10)));
+					this.state.matches = newOrder;
+					this.updateVisibilityAndIcons();
+				}
+				this.save();
+			}
+		};
+
+		// 기본 대진 드래그 등록
+		this.dom.matchList.addEventListener('dragstart', e => handleDragStart(e, false));
+		this.dom.matchList.addEventListener('dragend', e => {
+			const row = e.target.closest('.match-item');
+			if (row) row.classList.remove('dragging');
+		});
+		this.dom.matchList.addEventListener('dragover', e => handleDragOver(e, this.dom.matchList, '.match-item:not(.dragging)'));
+		this.dom.matchList.addEventListener('drop', e => handleDrop(e, false));
+
+		// 라인 대진 드래그 등록
+		this.dom.lineList.addEventListener('dragstart', e => handleDragStart(e, true));
+		this.dom.lineList.addEventListener('dragend', e => {
+			const row = e.target.closest('.line-item');
+			if (row) row.classList.remove('dragging');
+		});
+		this.dom.lineList.addEventListener('dragover', e => handleDragOver(e, this.dom.lineList, '.line-item:not(.dragging)'));
+		this.dom.lineList.addEventListener('drop', e => handleDrop(e, true));
+	}
+
+	getDragAfterElement(container, selector, y) {
+		const draggableElements = [...container.querySelectorAll(selector)];
+		return draggableElements.reduce((closest, child) => {
+			const box = child.getBoundingClientRect();
+			const offset = y - box.top - box.height / 2;
+			if (offset < 0 && offset > closest.offset) {
+				return { offset: offset, element: child };
+			} else {
+				return closest;
+			}
+		}, { offset: Number.NEGATIVE_INFINITY }).element;
+	}
+
+	// 현재 탭에 있는 칸만 초기화 (기본 탭이면 기본 대진만, 라인 탭이면 라인 대진만)
+	resetNames() {
+		if (!confirm('현재 탭의 이름 칸을 비울까요?')) return;
+
+		if (this.state.activeTab === 'line') {
+			this.state.lineMatches.forEach(l => { l.p1 = ''; l.p2 = ''; });
+			this.state.lineFooterText = '';
+		} else {
+			this.state.matches.forEach(m => { m.p1 = ''; m.p2 = ''; m.state = STATE.NONE; m.map = ''; });
+			this.state.basicFooterText = '';
+		}
+
+		this.renderHeader();
+		this.renderMatches();
+		this.renderLineMatches();
+		this.renderScore();
+		this.save();
+	}
+
+	// 결과 텍스트 생성
+	generateResult() {
+		if (this.state.activeTab === 'line') {
+			const lineLines = this.state.lineMatches.map(lm => {
+				const lineTag = lm.line ? `【${lm.line}】` : '【】';
+				return `${lineTag} ${lm.p1 || ''} 🆚 ${lm.p2 || ''}`;
+			});
+
+			const footerText = this.state.lineFooterText ? `\n${this.state.lineFooterText}` : '';
+			const titleText = this.state.lineTitle || '';
+
+			const resultText = `　　🏆 ${titleText} 🏆
+
+` + lineLines.join('\n') + footerText;
+
+			this.dom.resultMem.value = resultText;
+		} else {
+			const { my, op, visibleCount } = this.calcScore();
+			const matchLines = [];
+
+			for (let i = 0; i < visibleCount; i++) {
+				const m = this.state.matches[i];
+				const numIcon = (i === visibleCount - 1) ? '🅰️' : NUM_ICONS[i];
+				const vsSymbol = m.state === STATE.WIN ? '✅🆚❌' : (m.state === STATE.LOSE ? '❌🆚✅' : '⬜🆚⬜');
+
+				const p1Text = m.p1 ? `${m.p1} ` : '';
+				const p2Text = m.p2 ? ` ${m.p2}` : '';
+				const mapText = m.map ? `🌐 ${m.map}` : '🌐';
+
+				matchLines.push(`${numIcon}${p1Text}${vsSymbol}${p2Text} ${mapText}`);
+			}
+
+			const myScoreFull = this.toFullWidthNum(my);
+			const opScoreFull = this.toFullWidthNum(op);
+			const footerText = this.state.basicFooterText ? `\n${this.state.basicFooterText}` : '';
+			const titleText = this.state.basicTitle || '';
+
+			const resultText = `　　🏆 ${titleText} 🏆
+
+　 ${this.state.myTeam} ${myScoreFull} 🆚 ${opScoreFull} ${this.state.opTeam} [${this.state.matchRule}]
+` + matchLines.join('\n') + footerText;
+
+			this.dom.resultMem.value = resultText;
+		}
+	}
+}
+
+// 애플리케이션 인스턴스화
+const app = new MatchApp();
+
+// ==========================================
+// 3. 테마 스위처 (확장 적용)
+// ==========================================
+(function() {
+	const THEME_KEY = 'matchAppTheme';
+	const root = document.documentElement;
+	const btns = document.querySelectorAll('.theme-btn');
+	const current = root.getAttribute('data-theme') || 'light';
+
+	function setActive(theme) {
+		btns.forEach(b => b.classList.toggle('active', b.dataset.themeValue === theme));
+	}
+
+	setActive(current);
+
+	btns.forEach(btn => {
+		btn.addEventListener('click', () => {
+			const theme = btn.dataset.themeValue;
+			root.setAttribute('data-theme', theme);
+			localStorage.setItem(THEME_KEY, theme);
+			setActive(theme);
+		});
+	});
+})();
+</script>
+
+</body>
+</html>
