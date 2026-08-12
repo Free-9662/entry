@@ -999,7 +999,8 @@ class MatchApp {
 			const footerText = this.state.lineFooterText ? `\n${this.state.lineFooterText}` : '';
 			const titleText = this.state.lineTitle || '';
 
-			const resultText = `　　🏆 ${titleText} 🏆
+			const resultText = `
+　　🏆 ${titleText} 🏆
 
 ` + lineLines.join('\n') + footerText;
 
@@ -1025,7 +1026,8 @@ class MatchApp {
 			const footerText = this.state.basicFooterText ? `\n${this.state.basicFooterText}` : '';
 			const titleText = this.state.basicTitle || '';
 
-			const resultText = `　　🏆 ${titleText} 🏆
+			const resultText = `
+　　🏆 ${titleText} 🏆
 
 　 ${this.state.myTeam} ${myScoreFull} 🆚 ${opScoreFull} ${this.state.opTeam} [${this.state.matchRule}]
 ` + matchLines.join('\n') + footerText;
