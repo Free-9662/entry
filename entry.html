@@ -129,6 +129,13 @@ html, body {
 }
 .btn-reset:hover { background: var(--clear-hover-bg); color: var(--text-primary); }
 
+.chk-3char {
+	display: flex; align-items: center; gap: 4px;
+	font-size: 13px; font-weight: bold; color: var(--text-muted);
+	cursor: pointer; user-select: none;
+}
+.chk-3char input { cursor: pointer; }
+
 /* 타이틀 박스 */
 .title-box {
 	display: flex; align-items: center; justify-content: center; gap: 6px;
@@ -361,6 +368,9 @@ html[data-theme="cool-slate"] {
 <div class="top-bar">
 	<button class="btn-generate" id="btnGenerate">결과 생성 🚀</button>
 	<button class="btn-reset" id="btnReset" title="모든 이름 칸을 비웁니다">초기화 🧹</button>
+	<label class="chk-3char" for="chk3Char" title="이름이 한글 2글자면 가운데에 공백을 넣어줍니다">
+		<input type="checkbox" id="chk3Char"> 3글자폼
+	</label>
 	<div class="theme-switcher" id="themeSwitcher">
 		<button class="theme-btn" data-theme-value="light" title="라이트">☀️</button>
 		<button class="theme-btn" data-theme-value="cool-slate" title="쿨 슬레이트">🔘</button>
@@ -486,6 +496,7 @@ const DEFAULT_STATE = {
 	myTeam: "우리팀",
 	opTeam: "상대팀",
 	matchRule: "9/5",
+	use3CharForm: false,
 	basicFooterText: "",
 	lineFooterText: "",
 	matches: [
@@ -502,11 +513,11 @@ const DEFAULT_STATE = {
 		{ id: 11, p1: "", p2: "", state: STATE.NONE, map: "" }
 	],
 	lineMatches: [
-		{ id: 101, line: "탑탑", p1: "오뀨", p2: "" },
-		{ id: 102, line: "정글", p1: "보리", p2: "" },
-		{ id: 103, line: "미드", p1: "클템", p2: "" },
-		{ id: 104, line: "원딜", p1: "리밍", p2: "" },
-		{ id: 105, line: "서폿", p1: "뿌리", p2: "" }
+		{ id: 101, line: "탑탑", p1: "", p2: "" },
+		{ id: 102, line: "정글", p1: "", p2: "" },
+		{ id: 103, line: "미드", p1: "", p2: "" },
+		{ id: 104, line: "원딜", p1: "", p2: "" },
+		{ id: 105, line: "서폿", p1: "", p2: "" }
 	]
 };
 
@@ -541,6 +552,7 @@ class MatchApp {
 			myTeamInput: document.getElementById('my_team'),
 			opTeamInput: document.getElementById('op_team'),
 			matchRuleInput: document.getElementById('match_rule'),
+			chk3Char: document.getElementById('chk3Char'),
 			scoreDisplay: document.getElementById('score_display'),
 			matchList: document.getElementById('matchList'),
 			lineList: document.getElementById('lineList'),
@@ -589,6 +601,13 @@ class MatchApp {
 		} catch (e) {
 			console.error("Load failed:", e);
 		}
+	}
+
+	// 이름 앞부분이 한글 2글자일 때 그 사이에 전각 공백("　")을 넣는다.
+	// 예) "이름" -> "이　름", "이름T" -> "이　름T", "홍길동" -> 변경 없음 (3글자)
+	apply3CharForm(name) {
+		if (!this.state.use3CharForm || !name) return name;
+		return name.replace(/^([\uAC00-\uD7A3])([\uAC00-\uD7A3])(?![\uAC00-\uD7A3])/, '$1　$2');
 	}
 
 	toFullWidthNum(num) {
@@ -641,6 +660,7 @@ class MatchApp {
 		this.dom.myTeamInput.value = this.state.myTeam;
 		this.dom.opTeamInput.value = this.state.opTeam;
 		this.dom.matchRuleInput.value = this.state.matchRule;
+		this.dom.chk3Char.checked = !!this.state.use3CharForm;
 		this.dom.basicFooterInput.value = this.state.basicFooterText || "";
 		this.dom.lineFooterInput.value = this.state.lineFooterText || "";
 	}
@@ -755,6 +775,12 @@ class MatchApp {
 		this.dom.matchRuleInput.addEventListener('input', e => {
 			this.state.matchRule = e.target.value;
 			this.updateVisibilityAndIcons();
+			this.save();
+		});
+
+		// 3글자폼 체크박스
+		this.dom.chk3Char.addEventListener('change', e => {
+			this.state.use3CharForm = e.target.checked;
 			this.save();
 		});
 
@@ -993,7 +1019,9 @@ class MatchApp {
 		if (this.state.activeTab === 'line') {
 			const lineLines = this.state.lineMatches.map(lm => {
 				const lineTag = lm.line ? `【${lm.line}】` : '【】';
-				return `${lineTag} ${lm.p1 || ''} 🆚 ${lm.p2 || ''}`;
+				const p1Name = this.apply3CharForm(lm.p1) || '';
+				const p2Name = this.apply3CharForm(lm.p2) || '';
+				return `${lineTag} ${p1Name} 🆚 ${p2Name}`;
 			});
 
 			const footerText = this.state.lineFooterText ? `\n${this.state.lineFooterText}` : '';
@@ -1014,8 +1042,10 @@ class MatchApp {
 				const numIcon = (i === visibleCount - 1) ? '🅰️' : NUM_ICONS[i];
 				const vsSymbol = m.state === STATE.WIN ? '✅🆚❌' : (m.state === STATE.LOSE ? '❌🆚✅' : '⬜🆚⬜');
 
-				const p1Text = m.p1 ? `${m.p1} ` : '';
-				const p2Text = m.p2 ? ` ${m.p2}` : '';
+				const p1Name = this.apply3CharForm(m.p1);
+				const p2Name = this.apply3CharForm(m.p2);
+				const p1Text = p1Name ? `${p1Name} ` : '';
+				const p2Text = p2Name ? ` ${p2Name}` : '';
 				const mapText = m.map ? `🌐 ${m.map}` : '🌐';
 
 				matchLines.push(`${numIcon}${p1Text}${vsSymbol}${p2Text} ${mapText}`);
