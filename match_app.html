@@ -530,7 +530,7 @@ function buildPlayerMap(tierData) {
 	if (!tierData || !Array.isArray(tierData.tiers)) return map;
 	tierData.tiers.forEach(tier => {
 		tier.players.forEach(p => {
-			map.set(p.name, { tier: tier.label, race: p.race });
+			map.set(p.name, { tier: tier.key, race: p.race });
 		});
 	});
 	return map;
@@ -656,7 +656,7 @@ class MatchApp {
 		if (!trimmed) return '';
 		const displayName = this.apply3CharForm(trimmed);
 		const info = this.playerMap.get(trimmed);
-		return info ? `${displayName}(${info.tier}${info.race})` : displayName;
+		return info ? `${displayName}${info.tier}${info.race}` : displayName;
 	}
 
 	save() {
