@@ -482,7 +482,7 @@ html[data-theme="cool-slate"] {
 // 0. EloBoard 티어 연동 (탬퍼몽키 브릿지 전용, 개인 사용)
 // ==========================================
 const TIER_CACHE_KEY = 'eloboardTierCache';
-const TIER_CACHE_TTL = 60 * 60 * 1000; // 1시간 캐시
+const TIER_CACHE_TTL = 10 * 60 * 60 * 1000; // 10시간 캐시
 const TIER_WAIT_TIMEOUT_MS = 3000;     // 탬퍼몽키 응답 대기 시간
 
 // 탬퍼몽키 브릿지 스크립트가 쏴주는 'eloboard-tiers-loaded' 이벤트를 기다림
