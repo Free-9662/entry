@@ -259,18 +259,18 @@ html, body {
 .tab-content.active { display: flex; flex-direction: column; gap: 10px; }
 
 /* 하단 추가 텍스트 영역 */
-.footer-text-box {
+.head-footer-text-box {
 	display: flex;
 	flex-direction: column;
 	gap: 5px;
 	margin-top: 10px;
 }
-.footer-text-box label {
+.head-footer-text-box label {
 	font-size: 13px;
 	font-weight: bold;
 	color: var(--text-muted);
 }
-.footer-text-box textarea {
+.head-footer-text-box textarea {
 	width: 100%;
 	height: 80px;
 	padding: 8px;
@@ -282,8 +282,8 @@ html, body {
 	background: var(--bg-input);
 	color: var(--text-primary);
 }
-.footer-text-box textarea:focus { outline: none; border-color: var(--border-strong); }
-.footer-text-box textarea::placeholder { color: var(--text-dim); }
+.head-footer-text-box textarea:focus { outline: none; border-color: var(--border-strong); }
+.head-footer-text-box textarea::placeholder { color: var(--text-dim); }
 
 /* ==========================================
    테마 변수 정의
@@ -394,6 +394,12 @@ html[data-theme="cool-slate"] {
 				<span>🏆</span>
 			</div>
 
+			<!-- 상단 텍스트 입력 영역 -->
+			<div class="head-footer-text-box">
+				<label for="basic_header">📝 결과 상단 추가 텍스트 (기본 대진)</label>
+				<textarea id="basic_header" placeholder="대진표 상단에 추가할 내용(예: 룰, 공지 등)을 입력하세요."></textarea>
+			</div>
+
 			<!-- 팀 이름 및 매치 규칙 설정 -->
 			<div class="team-box">
 				<input type="text" id="my_team" style="width:100px; text-align:right;">
@@ -408,7 +414,7 @@ html[data-theme="cool-slate"] {
 			<div class="match-list" id="matchList"></div>
 
 			<!-- 하단 텍스트 입력 영역 -->
-			<div class="footer-text-box">
+			<div class="head-footer-text-box">
 				<label for="basic_footer">📝 결과 하단 추가 텍스트 (기본 대진)</label>
 				<textarea id="basic_footer" placeholder="대진표 하단에 추가할 내용(예: 룰, 공지 등)을 입력하세요."></textarea>
 			</div>
@@ -423,11 +429,17 @@ html[data-theme="cool-slate"] {
 				<span>🏆</span>
 			</div>
 
+			<!-- 상단 텍스트 입력 영역 -->
+			<div class="head-footer-text-box">
+				<label for="line_header">📝 결과 상단 추가 텍스트 (라인 대진)</label>
+				<textarea id="line_header" placeholder="라인업 상단에 추가할 내용(예: 경기 시간, 참가비 등)을 입력하세요."></textarea>
+			</div>
+
 			<!-- 동적 라인 대진 목록 -->
 			<div class="line-list" id="lineList"></div>
 
 			<!-- 하단 텍스트 입력 영역 -->
-			<div class="footer-text-box">
+			<div class="head-footer-text-box">
 				<label for="line_footer">📝 결과 하단 추가 텍스트 (라인 대진)</label>
 				<textarea id="line_footer" placeholder="라인업 하단에 추가할 내용(예: 경기 시간, 참가비 등)을 입력하세요."></textarea>
 			</div>
@@ -497,7 +509,9 @@ const DEFAULT_STATE = {
 	opTeam: "상대팀",
 	matchRule: "9/5",
 	use3CharForm: false,
+	basicHeaderText: "",
 	basicFooterText: "",
+	lineHeaderText: "",
 	lineFooterText: "",
 	matches: [
 		{ id: 1, p1: "", p2: "", state: STATE.NONE, map: "" },
@@ -549,6 +563,8 @@ class MatchApp {
 		this.dom = {
 			basicTitleInput: document.getElementById('basic_title_input'),
 			lineTitleInput: document.getElementById('line_title_input'),
+			basicHeaderInput: document.getElementById('basic_header'),
+			lineHeaderInput: document.getElementById('line_header'),
 			myTeamInput: document.getElementById('my_team'),
 			opTeamInput: document.getElementById('op_team'),
 			matchRuleInput: document.getElementById('match_rule'),
@@ -657,6 +673,8 @@ class MatchApp {
 	renderHeader() {
 		this.dom.basicTitleInput.value = this.state.basicTitle || "";
 		this.dom.lineTitleInput.value = this.state.lineTitle || "";
+		this.dom.basicHeaderInput.value = this.state.basicHeaderText || "";
+		this.dom.lineHeaderInput.value = this.state.lineHeaderText || "";
 		this.dom.myTeamInput.value = this.state.myTeam;
 		this.dom.opTeamInput.value = this.state.opTeam;
 		this.dom.matchRuleInput.value = this.state.matchRule;
@@ -769,6 +787,10 @@ class MatchApp {
 		// 탭별 타이틀 변경
 		this.dom.basicTitleInput.addEventListener('input', e => { this.state.basicTitle = e.target.value; this.save(); });
 		this.dom.lineTitleInput.addEventListener('input', e => { this.state.lineTitle = e.target.value; this.save(); });
+
+		// 탭별 상단 텍스트 변경
+		this.dom.basicHeaderInput.addEventListener('input', e => { this.state.basicHeaderText = e.target.value; this.save(); });
+		this.dom.lineHeaderInput.addEventListener('input', e => { this.state.lineHeaderText = e.target.value; this.save(); });
 
 		this.dom.myTeamInput.addEventListener('input', e => { this.state.myTeam = e.target.value; this.save(); });
 		this.dom.opTeamInput.addEventListener('input', e => { this.state.opTeam = e.target.value; this.save(); });
@@ -1002,9 +1024,11 @@ class MatchApp {
 		if (this.state.activeTab === 'line') {
 			this.state.lineMatches.forEach(l => { l.p1 = ''; l.p2 = ''; });
 			this.state.lineFooterText = '';
+			this.state.lineHeaderText = '';
 		} else {
 			this.state.matches.forEach(m => { m.p1 = ''; m.p2 = ''; m.state = STATE.NONE; m.map = ''; });
 			this.state.basicFooterText = '';
+			this.state.basicHeaderText = '';
 		}
 
 		this.renderHeader();
@@ -1024,12 +1048,13 @@ class MatchApp {
 				return `${lineTag} ${p1Name} 🆚 ${p2Name}`;
 			});
 
+			const headerText = this.state.lineHeaderText ? `${this.state.lineHeaderText}` : '';
 			const footerText = this.state.lineFooterText ? `\n${this.state.lineFooterText}` : '';
 			const titleText = this.state.lineTitle || '';
 
 			const resultText = `
 　　🏆 ${titleText} 🏆
-
+${headerText}
 ` + lineLines.join('\n') + footerText;
 
 			this.dom.resultMem.value = resultText;
@@ -1053,12 +1078,13 @@ class MatchApp {
 
 			const myScoreFull = this.toFullWidthNum(my);
 			const opScoreFull = this.toFullWidthNum(op);
+			const headerText = this.state.basicHeaderText ? `${this.state.basicHeaderText}` : '';
 			const footerText = this.state.basicFooterText ? `\n${this.state.basicFooterText}` : '';
 			const titleText = this.state.basicTitle || '';
 
 			const resultText = `
 　　🏆 ${titleText} 🏆
-
+${headerText}
 　 ${this.state.myTeam} ${myScoreFull} 🆚 ${opScoreFull} ${this.state.opTeam} [${this.state.matchRule}]
 ` + matchLines.join('\n') + footerText;
 
