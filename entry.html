@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>대진표 결과 생성기 (Tab Separate Title)</title>
+<title>대진표 결과 생성기</title>
 <script>
 	// 저장된 테마를 렌더링 전에 미리 적용 (깜빡임 방지)
 	(function() {
@@ -157,16 +157,21 @@ html, body {
 	padding: 8px; border: 1px solid var(--border-soft); border-radius: 5px;
 }
 .team-box input#my_team,
-.team-box input#op_team {
+.team-box input#op_team,
+.team-box input#w_my_team,
+.team-box input#w_op_team {
 	padding: 5px 8px; border: 1px solid var(--input-border); border-radius: 4px;
 	background: var(--bg-input); color: var(--text-primary);
 	width: 100px;
 }
-.team-box input#my_team { text-align: right; }
+.team-box input#my_team,
+.team-box input#w_my_team { text-align: right; }
 .team-box input:focus { outline: none; border-color: var(--border-strong); }
-.team-box #score_display { font-weight: bold; color: var(--accent); }
+.team-box #score_display,
+.team-box #w_score_display { font-weight: bold; color: var(--accent); }
 .team-box span { color: var(--text-muted); }
-.team-box input#match_rule {
+.team-box input#match_rule,
+.team-box input#w_match_rule {
 	width: 50px; text-align: center;
 	padding: 5px; border: 1px solid var(--input-border); border-radius: 4px;
 	background: var(--bg-input); color: var(--text-primary);
@@ -361,6 +366,7 @@ html[data-theme="cool-slate"] {
 <!-- 탭 네비게이션 -->
 <div class="tab-header">
 	<button class="tab-btn active" data-tab="basic">기본 대진 ( 스타 CK )</button>
+	<button class="tab-btn" data-tab="winners">위너스 ( 스타 CK )</button>
 	<button class="tab-btn" data-tab="line">라인 대진 ( 롤 CK )</button>
 </div>
 
@@ -420,7 +426,37 @@ html[data-theme="cool-slate"] {
 			</div>
 		</div>
 
-		<!-- [탭 2] 라인 대진 뷰 -->
+		<!-- [탭 2] 위너스 대진 뷰 (맵이 앞쪽) -->
+		<div id="tab_winners" class="tab-content">
+			<div class="title-box">
+				<span>🏆</span>
+				<input type="text" id="winners_title_input" style="width:200px; text-align:center;" placeholder="위너스 타이틀">
+				<span>🏆</span>
+			</div>
+
+			<div class="head-footer-text-box">
+				<label for="winners_header">📝 결과 상단 추가 텍스트 (위너스)</label>
+				<textarea id="winners_header" placeholder="대진표 상단에 추가할 내용(예: 룰, 공지 등)을 입력하세요."></textarea>
+			</div>
+
+			<div class="team-box">
+				<span>[</span>
+				<input type="text" id="w_match_rule" style="width:50px; text-align:center;">
+				<span>]</span>
+				<input type="text" id="w_my_team" style="width:100px; text-align:right;">
+				<span id="w_score_display" style="font-weight:bold;">0 🆚 0</span>
+				<input type="text" id="w_op_team" style="width:100px;">
+			</div>
+
+			<div class="match-list" id="winnersList"></div>
+
+			<div class="head-footer-text-box">
+				<label for="winners_footer">📝 결과 하단 추가 텍스트 (위너스)</label>
+				<textarea id="winners_footer" placeholder="대진표 하단에 추가할 내용(예: 룰, 공지 등)을 입력하세요."></textarea>
+			</div>
+		</div>
+
+		<!-- [탭 3] 라인 대진 뷰 -->
 		<div id="tab_line" class="tab-content">
 			<!-- 타이틀 설정 (라인 대진 전용) -->
 			<div class="title-box">
@@ -471,6 +507,26 @@ html[data-theme="cool-slate"] {
 	</div>
 </template>
 
+<!-- HTML 템플릿: 위너스 매치 (맵 → 선수 순서) -->
+<template id="winners-template">
+	<div class="match-item" draggable="true">
+		<span class="match-num"></span>
+		<input type="text" class="map-input" placeholder="맵">
+		<div class="player-box" draggable="true" data-role="p1-box">
+			<input type="text" class="p1-input">
+		</div>
+		<div class="vs-btn">
+			<span class="btn-left">⬜</span>
+			<span>🆚</span>
+			<span class="btn-right">⬜</span>
+		</div>
+		<div class="player-box" draggable="true" data-role="p2-box">
+			<input type="text" class="p2-input">
+		</div>
+		<button class="btn-clear" title="내용 삭제">❌</button>
+	</div>
+</template>
+
 <!-- HTML 템플릿: 라인 매치 -->
 <template id="line-template">
 	<div class="line-item" draggable="true">
@@ -505,6 +561,12 @@ const DEFAULT_STATE = {
 	activeTab: 'basic',
 	basicTitle: "스타 CK",
 	lineTitle: "롤 CK",
+	winnersTitle: "위너스 CK",
+	winnersMyTeam: "우리팀",
+	winnersOpTeam: "상대팀",
+	winnersMatchRule: "5/3",
+	winnersHeaderText: "",
+	winnersFooterText: "",
 	myTeam: "우리팀",
 	opTeam: "상대팀",
 	matchRule: "9/5",
@@ -535,6 +597,10 @@ const DEFAULT_STATE = {
 	]
 };
 
+DEFAULT_STATE.winnersMatches = Array.from({ length: 11 }, (_, i) => (
+	{ id: 201 + i, p1: "", p2: "", state: STATE.NONE, map: "" }
+));
+
 // ==========================================
 // 2. MatchApp 클래스 정의
 // ==========================================
@@ -543,6 +609,7 @@ class MatchApp {
 		this.state = JSON.parse(JSON.stringify(DEFAULT_STATE));
 		this.matchMap = new Map();
 		this.lineMap = new Map();
+		this.winnersMap = new Map();
 		this.saveTimer = null;
 
 		this.dragInfo = {
@@ -581,13 +648,26 @@ class MatchApp {
 			lineTemplate: document.getElementById('line-template'),
 			tabBtns: document.querySelectorAll('.tab-btn'),
 			tabBasic: document.getElementById('tab_basic'),
-			tabLine: document.getElementById('tab_line')
+			tabLine: document.getElementById('tab_line'),
+			tabWinners: document.getElementById('tab_winners'),
+			winnersTitleInput: document.getElementById('winners_title_input'),
+			winnersHeaderInput: document.getElementById('winners_header'),
+			winnersFooterInput: document.getElementById('winners_footer'),
+			wMyTeamInput: document.getElementById('w_my_team'),
+			wOpTeamInput: document.getElementById('w_op_team'),
+			wMatchRuleInput: document.getElementById('w_match_rule'),
+			wScoreDisplay: document.getElementById('w_score_display'),
+			winnersList: document.getElementById('winnersList'),
+			winnersTemplate: document.getElementById('winners-template')
 		};
 	}
 
 	initMaps() {
 		this.matchMap.clear();
 		this.state.matches.forEach(m => this.matchMap.set(m.id, m));
+
+		this.winnersMap.clear();
+		this.state.winnersMatches.forEach(m => this.winnersMap.set(m.id, m));
 
 		this.lineMap.clear();
 		this.state.lineMatches.forEach(l => this.lineMap.set(l.id, l));
@@ -611,6 +691,9 @@ class MatchApp {
 			if (Array.isArray(parsed.matches)) {
 				this.state.matches = DEFAULT_STATE.matches.map((def, idx) => ({ ...def, ...parsed.matches[idx] }));
 			}
+			if (Array.isArray(parsed.winnersMatches)) {
+				this.state.winnersMatches = DEFAULT_STATE.winnersMatches.map((def, idx) => ({ ...def, ...parsed.winnersMatches[idx] }));
+			}
 			if (Array.isArray(parsed.lineMatches)) {
 				this.state.lineMatches = DEFAULT_STATE.lineMatches.map((def, idx) => ({ ...def, ...parsed.lineMatches[idx] }));
 			}
@@ -630,17 +713,17 @@ class MatchApp {
 		return String(num).split('').map(n => FULL_NUMS[n] || n).join('');
 	}
 
-	getVisibleCount() {
-		const match = this.state.matchRule.trim().match(/^(\d+)/);
+	getVisibleCount(rule = this.state.matchRule) {
+		const match = String(rule).trim().match(/^(\d+)/);
 		const count = match ? parseInt(match[1], 10) : 11;
 		return Math.min(Math.max(count, 1), 11);
 	}
 
-	calcScore() {
-		const visibleCount = this.getVisibleCount();
+	calcScore(list = this.state.matches, rule = this.state.matchRule) {
+		const visibleCount = this.getVisibleCount(rule);
 		let my = 0, op = 0;
 		for (let i = 0; i < visibleCount; i++) {
-			const m = this.state.matches[i];
+			const m = list[i];
 			if (m.state === STATE.WIN) my++;
 			else if (m.state === STATE.LOSE) op++;
 		}
@@ -659,13 +742,8 @@ class MatchApp {
 			btn.classList.toggle('active', btn.dataset.tab === tabName);
 		});
 
-		if (tabName === 'basic') {
-			this.dom.tabBasic.classList.add('active');
-			this.dom.tabLine.classList.remove('active');
-		} else {
-			this.dom.tabBasic.classList.remove('active');
-			this.dom.tabLine.classList.add('active');
-		}
+		const panels = { basic: this.dom.tabBasic, winners: this.dom.tabWinners, line: this.dom.tabLine };
+		Object.entries(panels).forEach(([name, el]) => el.classList.toggle('active', name === tabName));
 
 		this.save();
 	}
@@ -681,11 +759,19 @@ class MatchApp {
 		this.dom.chk3Char.checked = !!this.state.use3CharForm;
 		this.dom.basicFooterInput.value = this.state.basicFooterText || "";
 		this.dom.lineFooterInput.value = this.state.lineFooterText || "";
+		this.dom.winnersTitleInput.value = this.state.winnersTitle || "";
+		this.dom.winnersHeaderInput.value = this.state.winnersHeaderText || "";
+		this.dom.winnersFooterInput.value = this.state.winnersFooterText || "";
+		this.dom.wMyTeamInput.value = this.state.winnersMyTeam;
+		this.dom.wOpTeamInput.value = this.state.winnersOpTeam;
+		this.dom.wMatchRuleInput.value = this.state.winnersMatchRule;
 	}
 
 	renderScore() {
 		const { my, op } = this.calcScore();
 		this.dom.scoreDisplay.textContent = `${my} 🆚 ${op}`;
+		const w = this.calcScore(this.state.winnersMatches, this.state.winnersMatchRule);
+		this.dom.wScoreDisplay.textContent = `${w.my} 🆚 ${w.op}`;
 	}
 
 	updateMatchRowUI(rowEl, match) {
@@ -705,12 +791,17 @@ class MatchApp {
 		ui.p2Input.value = lineMatch.p2;
 	}
 
-	renderMatches() {
-		this.dom.matchList.innerHTML = '';
+	renderMatches(kind = 'basic') {
+		const isW = kind === 'winners';
+		const listEl = isW ? this.dom.winnersList : this.dom.matchList;
+		const tmpl = isW ? this.dom.winnersTemplate : this.dom.matchTemplate;
+		const items = isW ? this.state.winnersMatches : this.state.matches;
+
+		listEl.innerHTML = '';
 		const fragment = document.createDocumentFragment();
 
-		this.state.matches.forEach((item) => {
-			const clone = this.dom.matchTemplate.content.cloneNode(true);
+		items.forEach((item) => {
+			const clone = tmpl.content.cloneNode(true);
 			const matchRow = clone.querySelector('.match-item');
 
 			matchRow._ui = {
@@ -727,8 +818,8 @@ class MatchApp {
 			fragment.appendChild(clone);
 		});
 
-		this.dom.matchList.appendChild(fragment);
-		this.updateVisibilityAndIcons();
+		listEl.appendChild(fragment);
+		this.updateVisibilityAndIcons(kind);
 	}
 
 	renderLineMatches() {
@@ -753,9 +844,10 @@ class MatchApp {
 		this.dom.lineList.appendChild(fragment);
 	}
 
-	updateVisibilityAndIcons() {
-		const visibleCount = this.getVisibleCount();
-		const rows = [...this.dom.matchList.children];
+	updateVisibilityAndIcons(kind = 'basic') {
+		const isW = kind === 'winners';
+		const visibleCount = this.getVisibleCount(isW ? this.state.winnersMatchRule : this.state.matchRule);
+		const rows = [...(isW ? this.dom.winnersList : this.dom.matchList).children];
 
 		rows.forEach((row, idx) => {
 			if (idx < visibleCount) {
@@ -774,6 +866,7 @@ class MatchApp {
 		this.switchTab(this.state.activeTab || 'basic');
 		this.renderHeader();
 		this.renderMatches();
+		this.renderMatches('winners');
 		this.renderLineMatches();
 		this.renderScore();
 	}
@@ -791,6 +884,17 @@ class MatchApp {
 		// 탭별 상단 텍스트 변경
 		this.dom.basicHeaderInput.addEventListener('input', e => { this.state.basicHeaderText = e.target.value; this.save(); });
 		this.dom.lineHeaderInput.addEventListener('input', e => { this.state.lineHeaderText = e.target.value; this.save(); });
+
+		this.dom.winnersTitleInput.addEventListener('input', e => { this.state.winnersTitle = e.target.value; this.save(); });
+		this.dom.winnersHeaderInput.addEventListener('input', e => { this.state.winnersHeaderText = e.target.value; this.save(); });
+		this.dom.winnersFooterInput.addEventListener('input', e => { this.state.winnersFooterText = e.target.value; this.save(); });
+		this.dom.wMyTeamInput.addEventListener('input', e => { this.state.winnersMyTeam = e.target.value; this.save(); });
+		this.dom.wOpTeamInput.addEventListener('input', e => { this.state.winnersOpTeam = e.target.value; this.save(); });
+		this.dom.wMatchRuleInput.addEventListener('input', e => {
+			this.state.winnersMatchRule = e.target.value;
+			this.updateVisibilityAndIcons('winners');
+			this.save();
+		});
 
 		this.dom.myTeamInput.addEventListener('input', e => { this.state.myTeam = e.target.value; this.save(); });
 		this.dom.opTeamInput.addEventListener('input', e => { this.state.opTeam = e.target.value; this.save(); });
@@ -816,41 +920,42 @@ class MatchApp {
 			this.save();
 		});
 
-		// [기본 대진] 이벤트 위임
-		this.dom.matchList.addEventListener('click', e => {
-			const row = e.target.closest('.match-item');
-			if (!row) return;
-			const id = parseInt(row.dataset.id, 10);
-			const match = this.matchMap.get(id);
+		// [기본 대진 / 위너스] 이벤트 위임
+		[[this.dom.matchList, this.matchMap], [this.dom.winnersList, this.winnersMap]].forEach(([listEl, idMap]) => {
+			listEl.addEventListener('click', e => {
+				const row = e.target.closest('.match-item');
+				if (!row) return;
+				const match = idMap.get(parseInt(row.dataset.id, 10));
 
-			if (e.target.matches('.btn-left')) {
-				if (!match.p1 && !match.p2) return;
-				match.state = (match.state === STATE.WIN) ? STATE.NONE : STATE.WIN;
-				this.updateMatchRowUI(row, match);
-				this.renderScore();
-				this.save();
-			} else if (e.target.matches('.btn-right')) {
-				if (!match.p1 && !match.p2) return;
-				match.state = (match.state === STATE.LOSE) ? STATE.NONE : STATE.LOSE;
-				this.updateMatchRowUI(row, match);
-				this.renderScore();
-				this.save();
-			} else if (e.target.matches('.btn-clear')) {
-				match.p1 = ''; match.p2 = ''; match.map = ''; match.state = STATE.NONE;
-				this.updateMatchRowUI(row, match);
-				this.renderScore();
-				this.save();
-			}
-		});
+				if (e.target.matches('.btn-left')) {
+					if (!match.p1 && !match.p2) return;
+					match.state = (match.state === STATE.WIN) ? STATE.NONE : STATE.WIN;
+					this.updateMatchRowUI(row, match);
+					this.renderScore();
+					this.save();
+				} else if (e.target.matches('.btn-right')) {
+					if (!match.p1 && !match.p2) return;
+					match.state = (match.state === STATE.LOSE) ? STATE.NONE : STATE.LOSE;
+					this.updateMatchRowUI(row, match);
+					this.renderScore();
+					this.save();
+				} else if (e.target.matches('.btn-clear')) {
+					match.p1 = ''; match.p2 = ''; match.map = ''; match.state = STATE.NONE;
+					this.updateMatchRowUI(row, match);
+					this.renderScore();
+					this.save();
+				}
+			});
 
-		this.dom.matchList.addEventListener('input', e => {
-			const row = e.target.closest('.match-item');
-			if (!row) return;
-			const match = this.matchMap.get(parseInt(row.dataset.id, 10));
-			if (e.target.matches('.p1-input')) match.p1 = e.target.value;
-			else if (e.target.matches('.p2-input')) match.p2 = e.target.value;
-			else if (e.target.matches('.map-input')) match.map = e.target.value;
-			this.save();
+			listEl.addEventListener('input', e => {
+				const row = e.target.closest('.match-item');
+				if (!row) return;
+				const match = idMap.get(parseInt(row.dataset.id, 10));
+				if (e.target.matches('.p1-input')) match.p1 = e.target.value;
+				else if (e.target.matches('.p2-input')) match.p2 = e.target.value;
+				else if (e.target.matches('.map-input')) match.map = e.target.value;
+				this.save();
+			});
 		});
 
 		// [라인 대진] 이벤트 위임
@@ -927,11 +1032,12 @@ class MatchApp {
 			}
 		};
 
-		const handleDrop = (e, isLineMode) => {
+		const handleDrop = (e, mode) => {
 			e.preventDefault();
-			const container = isLineMode ? this.dom.lineList : this.dom.matchList;
+			const isLineMode = mode === 'line';
+			const container = { basic: this.dom.matchList, winners: this.dom.winnersList, line: this.dom.lineList }[mode];
 			const itemSelector = isLineMode ? '.line-item' : '.match-item';
-			const targetMap = isLineMode ? this.lineMap : this.matchMap;
+			const targetMap = { basic: this.matchMap, winners: this.winnersMap, line: this.lineMap }[mode];
 
 			if (this.dragInfo.type === 'PLAYER') {
 				const targetBox = e.target.closest('.player-box');
@@ -978,8 +1084,9 @@ class MatchApp {
 					this.renderLineMatches();
 				} else {
 					const newOrder = currentRows.map(row => targetMap.get(parseInt(row.dataset.id, 10)));
-					this.state.matches = newOrder;
-					this.updateVisibilityAndIcons();
+					if (mode === 'winners') this.state.winnersMatches = newOrder;
+					else this.state.matches = newOrder;
+					this.updateVisibilityAndIcons(mode);
 				}
 				this.save();
 			}
@@ -992,7 +1099,16 @@ class MatchApp {
 			if (row) row.classList.remove('dragging');
 		});
 		this.dom.matchList.addEventListener('dragover', e => handleDragOver(e, this.dom.matchList, '.match-item:not(.dragging)'));
-		this.dom.matchList.addEventListener('drop', e => handleDrop(e, false));
+		this.dom.matchList.addEventListener('drop', e => handleDrop(e, 'basic'));
+
+		// 위너스 드래그 등록
+		this.dom.winnersList.addEventListener('dragstart', e => handleDragStart(e, false));
+		this.dom.winnersList.addEventListener('dragend', e => {
+			const row = e.target.closest('.match-item');
+			if (row) row.classList.remove('dragging');
+		});
+		this.dom.winnersList.addEventListener('dragover', e => handleDragOver(e, this.dom.winnersList, '.match-item:not(.dragging)'));
+		this.dom.winnersList.addEventListener('drop', e => handleDrop(e, 'winners'));
 
 		// 라인 대진 드래그 등록
 		this.dom.lineList.addEventListener('dragstart', e => handleDragStart(e, true));
@@ -1001,7 +1117,7 @@ class MatchApp {
 			if (row) row.classList.remove('dragging');
 		});
 		this.dom.lineList.addEventListener('dragover', e => handleDragOver(e, this.dom.lineList, '.line-item:not(.dragging)'));
-		this.dom.lineList.addEventListener('drop', e => handleDrop(e, true));
+		this.dom.lineList.addEventListener('drop', e => handleDrop(e, 'line'));
 	}
 
 	getDragAfterElement(container, selector, y) {
@@ -1025,6 +1141,10 @@ class MatchApp {
 			this.state.lineMatches.forEach(l => { l.p1 = ''; l.p2 = ''; });
 			this.state.lineFooterText = '';
 			this.state.lineHeaderText = '';
+		} else if (this.state.activeTab === 'winners') {
+			this.state.winnersMatches.forEach(m => { m.p1 = ''; m.p2 = ''; m.state = STATE.NONE; m.map = ''; });
+			this.state.winnersFooterText = '';
+			this.state.winnersHeaderText = '';
 		} else {
 			this.state.matches.forEach(m => { m.p1 = ''; m.p2 = ''; m.state = STATE.NONE; m.map = ''; });
 			this.state.basicFooterText = '';
@@ -1033,6 +1153,7 @@ class MatchApp {
 
 		this.renderHeader();
 		this.renderMatches();
+		this.renderMatches('winners');
 		this.renderLineMatches();
 		this.renderScore();
 		this.save();
@@ -1056,6 +1177,30 @@ class MatchApp {
 　　🏆 ${titleText} 🏆
 ${headerText}
 ` + lineLines.join('\n') + footerText;
+
+			this.dom.resultMem.value = resultText;
+		} else if (this.state.activeTab === 'winners') {
+			const { my, op, visibleCount } = this.calcScore(this.state.winnersMatches, this.state.winnersMatchRule);
+			const matchLines = [];
+
+			for (let i = 0; i < visibleCount; i++) {
+				const m = this.state.winnersMatches[i];
+				const numIcon = (i === visibleCount - 1) ? '🅰️' : NUM_ICONS[i];
+				const vsSymbol = m.state === STATE.WIN ? '✅🆚❌' : (m.state === STATE.LOSE ? '❌🆚✅' : '⬜🆚⬜');
+				const p1Name = this.apply3CharForm(m.p1) || '';
+				const p2Name = this.apply3CharForm(m.p2) || '';
+				matchLines.push(`${numIcon} [${m.map || ''}] ${p1Name}${vsSymbol}${p2Name}`);
+			}
+
+			const headerText = this.state.winnersHeaderText || '';
+			const footerText = this.state.winnersFooterText ? `\n${this.state.winnersFooterText}` : '';
+			const titleText = this.state.winnersTitle || '';
+
+			const resultText = `
+　　🏆 ${titleText} 🏆
+${headerText}
+　 [${this.state.winnersMatchRule}] ${this.state.winnersMyTeam} ${this.toFullWidthNum(my)} 🆚 ${this.toFullWidthNum(op)} ${this.state.winnersOpTeam}
+` + matchLines.join('\n') + footerText;
 
 			this.dom.resultMem.value = resultText;
 		} else {
