@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stopwatch</title>
+
+<link href="https://db.onlinewebfonts.com/c/f6e67539e25adbf860808313c8e75ce5?family=Digital-7+V6" rel="stylesheet" type="text/css">
+
+<style>
+    .wrapper {
+        width: 500px;
+        margin: 30px auto;
+        text-align: center;
+    }
+
+    h1 {
+        font-family: 'Roboto', sans-serif;
+        font-weight: 100;
+        font-size: 2.6em;
+        text-transform: uppercase;
+    }
+
+    /* ================= 기본 테마 변수 ================= */
+
+    .time-box {
+        --bg: #ffffff;
+        --text: #000000;
+        --accent: #000000;
+        --neon: none;
+
+        border-radius: 20px;
+        padding: 25px;
+        margin: 20px auto;
+        width: 380px;
+        background: var(--bg);
+        color: var(--text);
+        border: 2px solid var(--accent);
+        box-shadow: var(--shadow, none);
+        transition: all 0.3s ease;
+    }
+
+    /* 숫자 공통 */
+
+    #seconds, #minutes, #hour {
+        font-family: "Digital-7 V6";
+        font-size: 4.5em;
+        letter-spacing: 4px;
+        text-shadow: var(--neon);
+        animation: var(--flicker, none);
+    }
+
+    /* ================= 버튼 ================= */
+
+    button {
+        border-radius: 12px;
+        border: 2px solid currentColor;
+        background: black;
+        color: #00ff99;
+        cursor: pointer;
+        font-size: 1.5em;
+        padding: 15px;
+        width: 90px;
+        margin: 2px;
+        transition: 0.3s;
+    }
+
+    button:hover {
+        background: #00ff99;
+        color: black;
+        box-shadow: 0 0 10px #00ff99;
+    }
+
+    /* ================= 테마들 ================= */
+
+    .theme-light {
+        --bg: #ffffff;
+        --text: #000000;
+        --accent: #000000;
+    }
+
+    .theme-dark {
+        --bg: #1e1f26;
+        --text: #f5f5f7;
+        --accent: #3a3b45;
+        --shadow: 0 10px 30px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+    }
+
+    .theme-blue {
+        --bg: #000814;
+        --text: #00d4ff;
+        --accent: #00d4ff;
+        --neon: 0 0 5px #00d4ff, 0 0 10px #00d4ff, 0 0 20px #00d4ff, 0 0 40px #00d4ff;
+        --flicker: flicker 1.5s infinite alternate;
+    }
+
+    .theme-red {
+        --bg: #140000;
+        --text: #ff2e2e;
+        --accent: #ff2e2e;
+        --neon: 0 0 5px #ff2e2e, 0 0 10px #ff2e2e, 0 0 20px #ff2e2e, 0 0 40px #ff2e2e;
+        --flicker: flicker 1.5s infinite alternate;
+    }
+
+    .theme-green {
+        --bg: #001400;
+        --text: #00ff66;
+        --accent: #00ff66;
+        --neon: 0 0 5px #00ff66, 0 0 10px #00ff66, 0 0 20px #00ff66, 0 0 40px #00ff66;
+        --flicker: flicker 1.5s infinite alternate;
+    }
+
+    .theme-purple {
+        --bg: #120022;
+        --text: #c77dff;
+        --accent: #c77dff;
+        --neon: 0 0 5px #c77dff, 0 0 10px #c77dff, 0 0 20px #c77dff, 0 0 40px #c77dff;
+        --flicker: flicker 1.5s infinite alternate;
+    }
+
+    @keyframes flicker {
+        0% { opacity: 0.95; }
+        50% { opacity: 1; }
+        100% { opacity: 0.9; }
+    }
+
+    input[type="text"] {
+        text-align: center;
+    }
+
+    .color-picker {
+        margin-top: 15px;
+    }
+
+    .color-picker label {
+        margin: 0 4px;
+        cursor: pointer;
+    }
+</style>
+
+</head>
+
+<body>
+    <div class="wrapper">
+        <h1>Stopwatch</h1>
+
+    <div class="time-box theme-light">
+        <p>
+            <span id="hour"></span>
+            <span id="minutes"></span>
+            <span id="seconds"></span>
+        </p>
+    </div>
+
+    <button id="secondsm">1s -</button>
+    <button id="bt-start">Start</button>
+    <button id="bt-stop">Stop</button>
+    <button id="bt-reset">Reset</button>
+    <button id="secondsp">1s +</button>
+
+    <p>
+        시작시간
+        <input type="text" id="hou" value="0" style="width:24px;"> 시
+        <input type="text" id="min" value="0" style="width:24px;"> 분
+        <input type="text" id="sec" value="0" style="width:24px;"> 초
+        <input id="hour_p" type="checkbox"> 시간표시
+    </p>
+
+    <div class="color-picker">
+        <label><input type="radio" name="theme" value="light" checked> 화이트</label>
+        <label><input type="radio" name="theme" value="dark"> 다크</label>
+        <label><input type="radio" name="theme" value="blue"> 블루</label>
+        <label><input type="radio" name="theme" value="red"> 레드</label>
+        <label><input type="radio" name="theme" value="green"> 그린</label>
+        <label><input type="radio" name="theme" value="purple"> 퍼플</label>
+    </div>
+</div>
+
+<script>
+    class TimerApp {
+        constructor() {
+            this.count = 0;
+            this.timer = null;
+
+            // DOM 캐시
+            this.$ = id => document.getElementById(id);
+
+            this.apSeconds = this.$("seconds");
+            this.apMinutes = this.$("minutes");
+            this.apHour = this.$("hour");
+
+            this.secondsm = this.$("secondsm");
+            this.secondsp = this.$("secondsp");
+
+            this.btStart = this.$("bt-start");
+            this.btStop = this.$("bt-stop");
+            this.btReset = this.$("bt-reset");
+            this.hour_p = this.$("hour_p");
+
+            this.inputH = this.$("hou");
+            this.inputM = this.$("min");
+            this.inputS = this.$("sec");
+
+            this.timeBox = document.querySelector(".time-box");
+            this.themes = document.querySelectorAll("input[name='theme']");
+
+            this.initEvents();
+            this.updateView();
+            this.changeTheme("light");
+        }
+
+        changeTheme(theme) {
+            this.timeBox.classList.remove("theme-light", "theme-dark", "theme-blue", "theme-red", "theme-green", "theme-purple");
+            this.timeBox.classList.add("theme-" + theme);
+        }
+
+        initEvents() {
+            this.secondsm.onclick = () => {
+                this.count--;
+                this.updateView();
+            };
+
+            this.secondsp.onclick = () => {
+                this.count++;
+                this.updateView();
+            };
+
+            this.btStart.onclick = () => this.start();
+            this.btStop.onclick = () => this.stop();
+            this.btReset.onclick = () => this.reset();
+
+            this.hour_p.onchange = () => {
+                this.apHour.style.display = this.hour_p.checked ? "" : "none";
+                this.updateView();
+            };
+
+            this.themes.forEach(radio => {
+                radio.addEventListener("change", () => {
+                    this.changeTheme(radio.value);
+                });
+            });
+        }
+
+        start() {
+            this.count = Number(this.inputH.value) * 3600 + Number(this.inputM.value) * 60 + Number(this.inputS.value);
+            this.stop();
+
+            this.timer = setInterval(() => {
+                this.count++;
+                this.updateView();
+            }, 1000);
+        }
+
+        stop() {
+            clearInterval(this.timer);
+            this.timer = null;
+        }
+
+        reset() {
+            this.stop();
+            this.count = 0;
+            this.inputH.value = 0;
+            this.inputM.value = 0;
+            this.inputS.value = 0;
+            this.updateView();
+        }
+
+        updateView() {
+            const sec = this.count % 60;
+            const hour = Math.floor(this.count / 3600);
+
+            if (this.hour_p.checked) {
+                const min = Math.floor((this.count % 3600) / 60);
+                this.apHour.textContent = hour.toString().padStart(2, "0") + ":";
+                this.apMinutes.textContent = min.toString().padStart(2, "0") + ":";
+                this.apHour.style.display = "";
+            } else {
+                const min = Math.floor(this.count / 60);
+                this.apHour.style.display = "none";
+                this.apMinutes.textContent = min.toString().padStart(2, "0") + ":";
+            }
+
+            this.apSeconds.textContent = sec.toString().padStart(2, "0");
+        }
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+        new TimerApp();
+    });
+</script>
+
+</body>
+</html>
