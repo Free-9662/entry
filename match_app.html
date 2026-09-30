@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>대진표 결과 생성기 (Tab Separate Title)</title>
+<title>대진표 결과 생성기</title>
 <script>
 	// 저장된 테마를 렌더링 전에 미리 적용 (깜빡임 방지)
 	(function() {
@@ -651,12 +651,23 @@ class MatchApp {
 	}
 
 	// 이름 -> "이름(티어종족)" 형태로 변환 (3글자폼 적용 포함)
+	// 이름 안의 숫자(0-9)를 전각 숫자(０-９)로 바꾼다. (뒤에 붙는 티어 숫자와 헷갈리지 않게)
+	toFullWidthDigits(str) {
+		return String(str).replace(/[0-9]/g, d => FULL_NUMS[d]);
+	}
+
+	// 티어 값 정규화: 0~8은 그대로, god/king/jack/joker/spade 등 그 외는 전부 0
+	normalizeTier(key) {
+		const t = String(key ?? '').trim();
+		return /^[0-8]$/.test(t) ? t : '0';
+	}
+
 	formatWithTier(rawName) {
 		const trimmed = (rawName || '').trim();
 		if (!trimmed) return '';
-		const displayName = this.apply3CharForm(trimmed);
-		const info = this.playerMap.get(trimmed);
-		return info ? `${displayName}${info.tier}${info.race}` : displayName;
+		const displayName = this.toFullWidthDigits(this.apply3CharForm(trimmed));
+		const info = this.playerMap.get(trimmed); // 티어 조회는 원본 이름 기준
+		return info ? `${displayName}${this.normalizeTier(info.tier)}${info.race}` : displayName;
 	}
 
 	save() {
