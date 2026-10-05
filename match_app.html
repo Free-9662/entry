@@ -483,7 +483,7 @@ html[data-theme="cool-slate"] {
 // ==========================================
 const TIER_CACHE_KEY = 'eloboardTierCache';
 const TIER_CACHE_TTL = 10 * 60 * 60 * 1000; // 10시간 캐시
-const TIER_WAIT_TIMEOUT_MS = 3000;     // 탬퍼몽키 응답 대기 시간
+const TIER_WAIT_TIMEOUT_MS = 20000;    // 탬퍼몽키 응답 대기 시간 (부족한 선수 추가 조회 시간 포함)
 
 // 탬퍼몽키 브릿지 스크립트가 쏴주는 'eloboard-tiers-loaded' 이벤트를 기다림
 function waitForTampermonkeyTierData(timeoutMs = TIER_WAIT_TIMEOUT_MS) {
@@ -496,6 +496,8 @@ function waitForTampermonkeyTierData(timeoutMs = TIER_WAIT_TIMEOUT_MS) {
 			resolve(e.detail);
 		};
 		document.addEventListener('eloboard-tiers-loaded', handler);
+		// 브릿지가 이미 한 번 전달을 끝냈더라도 다시 가져오도록 요청 (갱신 버튼용)
+		document.dispatchEvent(new CustomEvent('eloboard-tiers-request'));
 		setTimeout(() => {
 			if (!done) {
 				done = true;
