@@ -705,9 +705,10 @@ class MatchApp {
 	}
 
 	// 이름 앞부분이 한글 2글자일 때 그 사이에 전각 공백("　")을 넣는다.
-	// 예) "이름" -> "이　름", "이름T" -> "이　름T", "홍길동" -> 변경 없음 (3글자)
+	// 예) "이름" -> "이　름", "홍길동" -> 변경 없음, "홍길동일" -> "홍길동" (앞 3글자만)
 	apply3CharForm(name) {
 		if (!this.state.use3CharForm || !name) return name;
+		name = Array.from(name).slice(0, 3).join('');   // 앞에서부터 3글자만 사용
 		return name.replace(/^([\uAC00-\uD7A3])([\uAC00-\uD7A3])(?![\uAC00-\uD7A3])/, '$1　$2');
 	}
 
