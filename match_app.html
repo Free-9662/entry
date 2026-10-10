@@ -372,6 +372,9 @@ html[data-theme="cool-slate"] {
 	<label class="chk-3char" for="chk3Char" title="이름이 한글 2글자면 가운데에 공백을 넣어줍니다">
 		<input type="checkbox" id="chk3Char"> 3글자폼
 	</label>
+	<label class="chk-3char" id="lblNumSpace" for="chkNumSpace" title="기본 대진 결과에서 1️⃣ 같은 번호 문자 뒤에 스페이스 한 칸을 넣습니다">
+		<input type="checkbox" id="chkNumSpace"> 띄어쓰기
+	</label>
 	<div class="theme-switcher" id="themeSwitcher">
 		<button class="theme-btn" data-theme-value="light" title="라이트">☀️</button>
 		<button class="theme-btn" data-theme-value="cool-slate" title="쿨 슬레이트">🔘</button>
@@ -558,6 +561,7 @@ const DEFAULT_STATE = {
 	opTeam: "상대팀",
 	matchRule: "9/5",
 	use3CharForm: false,
+	useNumSpace: false,
 	basicFooterText: "",
 	lineFooterText: "",
 	matches: [
@@ -616,6 +620,8 @@ class MatchApp {
 			opTeamInput: document.getElementById('op_team'),
 			matchRuleInput: document.getElementById('match_rule'),
 			chk3Char: document.getElementById('chk3Char'),
+			chkNumSpace: document.getElementById('chkNumSpace'),
+			lblNumSpace: document.getElementById('lblNumSpace'),
 			scoreDisplay: document.getElementById('score_display'),
 			matchList: document.getElementById('matchList'),
 			lineList: document.getElementById('lineList'),
@@ -734,6 +740,7 @@ class MatchApp {
 
 	switchTab(tabName) {
 		this.state.activeTab = tabName;
+		this.dom.lblNumSpace.style.display = tabName === 'basic' ? '' : 'none';
 		this.dom.tabBtns.forEach(btn => {
 			btn.classList.toggle('active', btn.dataset.tab === tabName);
 		});
@@ -756,6 +763,8 @@ class MatchApp {
 		this.dom.opTeamInput.value = this.state.opTeam;
 		this.dom.matchRuleInput.value = this.state.matchRule;
 		this.dom.chk3Char.checked = !!this.state.use3CharForm;
+		this.dom.chkNumSpace.checked = !!this.state.useNumSpace;
+		this.dom.lblNumSpace.style.display = this.state.activeTab === 'basic' ? '' : 'none';
 		this.dom.basicFooterInput.value = this.state.basicFooterText || "";
 		this.dom.lineFooterInput.value = this.state.lineFooterText || "";
 	}
@@ -876,6 +885,12 @@ class MatchApp {
 		// 3글자폼 체크박스
 		this.dom.chk3Char.addEventListener('change', e => {
 			this.state.use3CharForm = e.target.checked;
+			this.save();
+		});
+
+		// 띄어쓰기 체크박스 (기본 대진 전용)
+		this.dom.chkNumSpace.addEventListener('change', e => {
+			this.state.useNumSpace = e.target.checked;
 			this.save();
 		});
 
@@ -1147,7 +1162,8 @@ class MatchApp {
 				const p2Text = p2Name ? ` ${p2Name}` : '';
 				const mapText = m.map ? `🌐 ${m.map}` : '🌐';
 
-				matchLines.push(`${numIcon}${p1Text}${vsSymbol}${p2Text} ${mapText}`);
+				const numGap = this.state.useNumSpace ? ' ' : '';
+				matchLines.push(`${numIcon}${numGap}${p1Text}${vsSymbol}${p2Text} ${mapText}`);
 			}
 
 			const myScoreFull = this.toFullWidthNum(my);
