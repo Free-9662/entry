@@ -451,7 +451,7 @@ html[data-theme="cool-slate"] {
 		</div>
 		<div class="vs-btn">
 			<span class="btn-left">⬜</span>
-			<span>🆚</span>
+			<span class="btn-swap" title="좌우 선수 바꾸기">🆚</span>
 			<span class="btn-right">⬜</span>
 		</div>
 		<div class="player-box" draggable="true" data-role="p2-box">
@@ -923,6 +923,11 @@ class MatchApp {
 				match.state = (match.state === STATE.LOSE) ? STATE.NONE : STATE.LOSE;
 				this.updateMatchRowUI(row, match);
 				this.renderScore();
+				this.save();
+			} else if (e.target.matches('.btn-swap')) {
+				if (match.state !== STATE.NONE) return; // 승패가 결정된 줄은 교체 불가
+				[match.p1, match.p2] = [match.p2, match.p1];
+				this.updateMatchRowUI(row, match);
 				this.save();
 			} else if (e.target.matches('.btn-clear')) {
 				match.p1 = ''; match.p2 = ''; match.map = ''; match.state = STATE.NONE;
