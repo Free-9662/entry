@@ -88,8 +88,16 @@ html, body {
 }
 
 /* 우측 텍스트 출력 영역 */
-#ck_mem {
+#result_wrap {
 	flex: 0 0 40%;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	min-height: 0;
+}
+#ck_mem, #ck_mem2 {
+	flex: 1 1 0;
+	min-height: 0;
 	font-family: 'Consolas', monospace;
 	font-size: 14px;
 	line-height: 1.5;
@@ -101,7 +109,7 @@ html, body {
 	color: var(--text-primary);
 	white-space: pre;
 }
-#ck_mem:focus { outline: none; border-color: var(--border-strong); }
+#ck_mem:focus, #ck_mem2:focus { outline: none; border-color: var(--border-strong); }
 
 /* 상단 컨트롤 바 */
 .top-bar { margin-bottom: 10px; display: flex; gap: 10px; align-items: center; }
@@ -439,7 +447,10 @@ html[data-theme="cool-slate"] {
 	</div>
 
 	<!-- [우측] 최종 결과 출력 영역 -->
-	<textarea id="ck_mem"></textarea>
+	<div id="result_wrap">
+		<textarea id="ck_mem" title="기본 결과"></textarea>
+		<textarea id="ck_mem2" title="팀/선수 위치를 바꾼 결과"></textarea>
+	</div>
 </div>
 
 <!-- HTML 템플릿: 기본 매치 -->
@@ -628,6 +639,7 @@ class MatchApp {
 			basicFooterInput: document.getElementById('basic_footer'),
 			lineFooterInput: document.getElementById('line_footer'),
 			resultMem: document.getElementById('ck_mem'),
+			resultMem2: document.getElementById('ck_mem2'),
 			btnGenerate: document.getElementById('btnGenerate'),
 			btnReset: document.getElementById('btnReset'),
 			btnRefreshTier: document.getElementById('btnRefreshTier'),
@@ -1135,55 +1147,73 @@ class MatchApp {
 		this.save();
 	}
 
-	// 결과 텍스트 생성
-	generateResult() {
-		if (this.state.activeTab === 'line') {
-			const lineLines = this.state.lineMatches.map(lm => {
-				const lineTag = lm.line ? `【${lm.line}】` : '【】';
-				const p1Name = this.apply3CharForm(lm.p1) || '';
-				const p2Name = this.apply3CharForm(lm.p2) || '';
-				return `${lineTag} ${p1Name} 🆚 ${p2Name}`;
-			});
+	// 라인 대진 결과 텍스트 (swap=true면 선수 좌우를 바꿈)
+	buildLineText(swap) {
+		const lineLines = this.state.lineMatches.map(lm => {
+			const lineTag = lm.line ? `【${lm.line}】` : '【】';
+			const left = swap ? lm.p2 : lm.p1;
+			const right = swap ? lm.p1 : lm.p2;
+			const leftName = this.apply3CharForm(left) || '';
+			const rightName = this.apply3CharForm(right) || '';
+			return `${lineTag} ${leftName} 🆚 ${rightName}`;
+		});
 
-			const footerText = this.state.lineFooterText ? `\n${this.state.lineFooterText}` : '';
-			const titleText = this.state.lineTitle || '';
+		const footerText = this.state.lineFooterText ? `\n${this.state.lineFooterText}` : '';
+		const titleText = this.state.lineTitle || '';
 
-			const resultText = `　　🏆 ${titleText} 🏆
+		return `　　🏆 ${titleText} 🏆
 
 ` + lineLines.join('\n') + footerText;
+	}
 
-			this.dom.resultMem.value = resultText;
-		} else {
-			const { my, op, visibleCount } = this.calcScore();
-			const matchLines = [];
+	// 기본 대진 결과 텍스트 (swap=true면 팀/점수/선수 좌우를 바꾸고 승패 표시도 함께 뒤집음)
+	buildBasicText(swap) {
+		const { my, op, visibleCount } = this.calcScore();
+		const matchLines = [];
 
-			for (let i = 0; i < visibleCount; i++) {
-				const m = this.state.matches[i];
-				const numIcon = (i === visibleCount - 1) ? '🅰️' : NUM_ICONS[i];
-				const vsSymbol = m.state === STATE.WIN ? '✅🆚❌' : (m.state === STATE.LOSE ? '❌🆚✅' : '⬜🆚⬜');
+		for (let i = 0; i < visibleCount; i++) {
+			const m = this.state.matches[i];
+			const numIcon = (i === visibleCount - 1) ? '🅰️' : NUM_ICONS[i];
 
-				const p1Name = this.formatWithTier(m.p1);
-				const p2Name = this.formatWithTier(m.p2);
-				const p1Text = p1Name ? `${p1Name} ` : '';
-				const p2Text = p2Name ? ` ${p2Name}` : '';
-				const mapText = m.map ? `🌐 ${m.map}` : '🌐';
-
-				const numGap = this.state.useNumSpace ? ' ' : '';
-				matchLines.push(`${numIcon}${numGap}${p1Text}${vsSymbol}${p2Text} ${mapText}`);
+			let vsSymbol = m.state === STATE.WIN ? '✅🆚❌' : (m.state === STATE.LOSE ? '❌🆚✅' : '⬜🆚⬜');
+			if (swap) {
+				vsSymbol = m.state === STATE.WIN ? '❌🆚✅' : (m.state === STATE.LOSE ? '✅🆚❌' : '⬜🆚⬜');
 			}
 
-			const myScoreFull = this.toFullWidthNum(my);
-			const opScoreFull = this.toFullWidthNum(op);
-			const footerText = this.state.basicFooterText ? `\n${this.state.basicFooterText}` : '';
-			const titleText = this.state.basicTitle || '';
+			const leftName = this.formatWithTier(swap ? m.p2 : m.p1);
+			const rightName = this.formatWithTier(swap ? m.p1 : m.p2);
+			const leftText = leftName ? `${leftName} ` : '';
+			const rightText = rightName ? ` ${rightName}` : '';
+			const mapText = m.map ? `🌐 ${m.map}` : '🌐';
 
-			const resultText = `　　🏆 ${titleText} 🏆
-
-　　 ${this.state.myTeam} ${myScoreFull} 🆚 ${opScoreFull} ${this.state.opTeam} [${this.state.matchRule}]
-` + matchLines.join('\n') + footerText;
-
-			this.dom.resultMem.value = resultText;
+			const numGap = this.state.useNumSpace ? ' ' : '';
+			matchLines.push(`${numIcon}${numGap}${leftText}${vsSymbol}${rightText} ${mapText}`);
 		}
+
+		// 팀 이름이 기본값(우리팀/상대팀)이면 이름은 그대로 두고 점수만 바꾼다
+		const isDefaultTeams = this.state.myTeam.trim() === '우리팀' && this.state.opTeam.trim() === '상대팀';
+		const swapTeamName = swap && !isDefaultTeams;
+		const leftTeam = swapTeamName ? this.state.opTeam : this.state.myTeam;
+		const rightTeam = swapTeamName ? this.state.myTeam : this.state.opTeam;
+		const leftScore = this.toFullWidthNum(swap ? op : my);
+		const rightScore = this.toFullWidthNum(swap ? my : op);
+		const footerText = this.state.basicFooterText ? `\n${this.state.basicFooterText}` : '';
+		const titleText = this.state.basicTitle || '';
+
+		return `　　🏆 ${titleText} 🏆
+
+　　 ${leftTeam} ${leftScore} 🆚 ${rightScore} ${rightTeam} [${this.state.matchRule}]
+` + matchLines.join('\n') + footerText;
+	}
+
+	// 결과 텍스트 생성 (위: 기본 / 아래: 팀·선수 위치를 서로 바꾼 버전)
+	generateResult() {
+		const build = this.state.activeTab === 'line'
+			? swap => this.buildLineText(swap)
+			: swap => this.buildBasicText(swap);
+
+		this.dom.resultMem.value = build(false);
+		this.dom.resultMem2.value = build(true);
 	}
 }
 
